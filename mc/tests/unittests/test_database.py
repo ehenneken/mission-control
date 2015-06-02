@@ -7,7 +7,6 @@ sys.path.append(PROJECT_HOME)
 import unittest
 from flask.ext.testing import TestCase
 from app import create_app
-from models import db, FavoriteColor
 
 class TestDatabase(TestCase):
     """
