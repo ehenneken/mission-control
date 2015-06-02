@@ -1,3 +1,6 @@
+GITHUB_SIGNATURE_HEADER = 'X-Hub-Signature'
+
+
 MC_LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

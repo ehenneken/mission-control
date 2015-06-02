@@ -7,13 +7,9 @@ import os
 PROJECT_HOME = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '../../'))
 sys.path.append(PROJECT_HOME)
-
 import unittest
-import time
-import json
 import app
 from flask.ext.testing import TestCase
-from flask import url_for
 
 class TestWebservices(TestCase):
     """
@@ -25,6 +21,7 @@ class TestWebservices(TestCase):
         Create the wsgi application
         """
         app_ = app.create_app()
+        app_.config['SQLALCHEMY_DATABASE_URI'] = "sqlite://"
         return app_
 
 if __name__ == '__main__':
