@@ -32,7 +32,7 @@ MC_LOGGING = {
     },
     'loggers': {
         '': {
-            'handlers': ['file', 'console', 'syslog'],
+            'handlers': ['file', 'console'],
             'level': 'CRITICAL',
             'propagate': True,
         },
