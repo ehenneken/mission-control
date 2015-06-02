@@ -1,0 +1,7 @@
+*pyc
+local_config.py
+.vagrant
+logs/
+*.sqlite
+*.idea*
+
