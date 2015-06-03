@@ -5,3 +5,4 @@ Flask-Script
 Flask-Migrate
 docker-py
 jinja2
+Celery
