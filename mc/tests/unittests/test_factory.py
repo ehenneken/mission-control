@@ -12,6 +12,7 @@ import unittest
 from mc import app
 from flask import Flask
 from celery import Celery
+import jinja2
 
 
 class TestFactory(unittest.TestCase):
@@ -29,6 +30,11 @@ class TestFactory(unittest.TestCase):
         celery = app.create_celery(app=a)
         self.assertIsInstance(celery, Celery)
         self.assertEqual(celery.main, 'unittest')
+
+    def test_create_jinja2(self):
+        e = app.create_jinja2()
+        self.assertIsInstance(e, jinja2.Environment)
+        self.assertIsInstance(e.loader, jinja2.FileSystemLoader)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

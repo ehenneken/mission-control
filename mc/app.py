@@ -7,6 +7,7 @@ import os
 from models import db
 
 from celery import Celery
+import jinja2
 from flask import Flask
 from flask.ext.restful import Api
 
@@ -62,6 +63,20 @@ def create_celery(app=None):
                 return TaskBase.__call__(self, *args, **kwargs)
     celery.Task = ContextTask
     return celery
+
+
+def create_jinja2(template_dir=None):
+    """
+    create a jinja2 environment using the FileSystemLoader
+
+    :param template_dir: absolute or relative path with which to look for
+        templates
+    :return: jinja2.Environment instance
+    """
+    if template_dir is None:
+        template_dir = os.path.join(os.path.dirname(__file__), '/templates')
+    loader = jinja2.FileSystemLoader(template_dir)
+    return jinja2.Environment(loader=loader)
 
 
 def load_config(app, basedir=os.path.dirname(__file__)):
