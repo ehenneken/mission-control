@@ -7,18 +7,39 @@ import os
 PROJECT_HOME = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '../../../'))
 sys.path.append(PROJECT_HOME)
+
 import unittest
+import hmac
+import hashlib
+import json
+
 from mc import app
 from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature
-import hmac
-import hashlib
+from mc.tests.stubdata.github_webhook_payload import payload
+
 from flask.ext.testing import TestCase
+
+
+class FakeRequest:
+    """
+    A rudimentary mock flask.request object
+    """
+    def __init__(self):
+        self.headers = {}
+        self.data = ''
+
+    def get_json(self):
+        """
+        return json from a string
+        """
+        self.json = json.loads(self.data)
+        return self.json
 
 
 class TestUtilities(TestCase):
     """
-    Tests that each route is an http response
+    Test standalone utilities and staticmethods
     """
 
     def create_app(self):
@@ -35,8 +56,6 @@ class TestUtilities(TestCase):
         Ensures that the signature is validated against the github algorithim
         found at https://github.com/github/github-services/blob/f3bb3dd780feb6318c42b2db064ed6d481b70a1f/lib/service/http_helper.rb#L77
         """
-
-        class FakeRequest: pass
 
         r = FakeRequest()
 
@@ -61,8 +80,21 @@ class TestUtilities(TestCase):
             r.headers = {}
             GithubListener.verify_github_signature(r)
 
+    def test_parse_github_payload(self):
+        """
+        Tests that a db.Commit object is created when passed an example
+        github webhook payload
+        """
+        r = FakeRequest()
+        r.data = payload
 
-
+        c = GithubListener.parse_github_payload(r)
+        self.assertEqual(
+            c.commit_hash,
+            'bcdf7771aa10d78d865c61e5336145e335e30427'
+        )
+        self.assertEqual(c.author, 'vsudilov')
+        self.assertEqual(c.repository, 'adsabs/mission-control')
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

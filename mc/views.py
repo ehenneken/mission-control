@@ -1,12 +1,15 @@
 """
 Views
 """
-from flask import current_app, request
-from flask.ext.restful import Resource
 import hmac
 import hashlib
+import datetime
+
+from flask import current_app, request, abort
+from flask.ext.restful import Resource
+
 from mc.exceptions import NoSignatureInfo, InvalidSignature
-from docker import Client
+from mc.models import db, Commit
 
 
 class GithubListener(Resource):
@@ -46,6 +49,43 @@ class GithubListener(Resource):
             raise InvalidSignature("Signature not validated")
 
         return True
+
+
+    @staticmethod
+    def parse_github_payload(request=None):
+        """
+        parses a github webhook message to create a models.Commit instance
+        :param request: request containing the header and body
+        :return: models.Commit based on the incoming payload
+        """
+
+        if request is None:
+            raise ValueError("No request object given")
+
+        payload = request.get_json()
+
+        return Commit(
+            commit_hash=payload['head_commit']['id'],
+            timestamp=payload['head_commit']['timestamp'],
+            author=payload['head_commit']['author']['username'],
+            repository=payload['repository']['full_name'],
+        )
+
+    def post(self):
+        """
+        Parse the incommit commit message, save to the backend database, and
+        create a build.
+        This endpoint should be contacted by a github webhook.
+        """
+
+        try:
+            GithubListener.verify_github_signature(request)
+        except (NoSignatureInfo, InvalidSignature) as e:
+            current_app.logger.info("{}: {}".format(request.remote_addr, e))
+            abort(400)
+
+        db.session.add(GithubListener.parse_github_payload(request))
+        db.session.commit()
 
 
 
