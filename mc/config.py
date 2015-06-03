@@ -1,5 +1,5 @@
 GITHUB_SIGNATURE_HEADER = 'X-Hub-Signature'
-
+GITHUB_SECRET = 'redacted'
 
 MC_LOGGING = {
     'version': 1,

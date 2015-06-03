@@ -27,7 +27,7 @@ class TestUtilities(TestCase):
         """
         app_ = app.create_app()
         app_.config['SQLALCHEMY_DATABASE_URI'] = "sqlite://"
-        app_.config['SECRET_KEY'] = 'unittest-secretkey'
+        app_.config['GITHUB_SECRET'] = 'unittest-secret'
         return app_
 
     def test_verify_signature(self):
@@ -42,7 +42,7 @@ class TestUtilities(TestCase):
 
         r.data = '''{"payload": "unittest"}'''
         h = hmac.new(
-            self.app.config['SECRET_KEY'],
+            self.app.config['GITHUB_SECRET'],
             msg=r.data,
             digestmod=hashlib.sha1,
         ).hexdigest()

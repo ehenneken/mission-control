@@ -6,6 +6,7 @@ from flask.ext.restful import Resource
 import hmac
 import hashlib
 from mc.exceptions import NoSignatureInfo, InvalidSignature
+from docker import Client
 
 
 class GithubListener(Resource):
@@ -36,7 +37,7 @@ class GithubListener(Resource):
         digestmod, sig = sig.split('=')
 
         h = hmac.new(
-            current_app.config['SECRET_KEY'],
+            current_app.config['GITHUB_SECRET'],
             msg=request.data,
             digestmod=hashlib.__getattribute__(digestmod),
         )
@@ -45,6 +46,7 @@ class GithubListener(Resource):
             raise InvalidSignature("Signature not validated")
 
         return True
+
 
 
 
