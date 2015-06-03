@@ -94,7 +94,7 @@ class TestUtilities(TestCase):
             'bcdf7771aa10d78d865c61e5336145e335e30427'
         )
         self.assertEqual(c.author, 'vsudilov')
-        self.assertEqual(c.repository, 'adsabs/mission-control')
+        self.assertEqual(c.repository, 'mission-control')
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

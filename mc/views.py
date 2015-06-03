@@ -68,7 +68,7 @@ class GithubListener(Resource):
             commit_hash=payload['head_commit']['id'],
             timestamp=payload['head_commit']['timestamp'],
             author=payload['head_commit']['author']['username'],
-            repository=payload['repository']['full_name'],
+            repository=payload['repository']['name'],
         )
 
     def post(self):
