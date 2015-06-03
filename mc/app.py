@@ -3,20 +3,23 @@ Application factory
 """
 
 import logging.config
+import os
 from models import db
 
+from celery import Celery
 from flask import Flask
 from flask.ext.restful import Api
 
 
-def create_app():
+def create_app(name="mission-control"):
     """
-    Create the application and return it to the user
+    Create the application
 
+    :param name: name of the application
     :return: flask.Flask application
     """
 
-    app = Flask(__name__, static_folder=None)
+    app = Flask(name, static_folder=None)
     app.url_map.strict_slashes = False
 
     # Load config and logging
@@ -32,20 +35,50 @@ def create_app():
     return app
 
 
-def load_config(app):
+def create_celery(app=None):
+    """
+    The function creates a new Celery object, configures it with the broker
+    from the application config, updates the rest of the Celery config from the
+    Flask config and then creates a subclass of the task that wraps the task
+    execution in an application context.
+    http://flask.pocoo.org/docs/0.10/patterns/celery/
+    :param app: flask.Flask application instance or None
+    :return: configured celery.Celery instance
+    """
+    if app is None:
+        app = create_app()
+
+    celery = Celery(
+        app.import_name,
+        broker=app.config.get('CELERY_BROKER_URL')
+    )
+    celery.conf.update(app.config)
+    TaskBase = celery.Task
+
+    class ContextTask(TaskBase):
+        abstract = True
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return TaskBase.__call__(self, *args, **kwargs)
+    celery.Task = ContextTask
+    return celery
+
+
+def load_config(app, basedir=os.path.dirname(__file__)):
     """
     Loads configuration in the following order:
         1. config.py
         2. local_config.py (ignore failures)
         3. consul (ignore failures)
     :param app: flask.Flask application instance
+    :param basedir: base directory to load the config from
     :return: None
     """
 
-    app.config.from_pyfile('config.py')
+    app.config.from_pyfile(os.path.join(basedir, 'config.py'))
 
     try:
-        app.config.from_pyfile('local_config.py')
+        app.config.from_pyfile(os.path.join(basedir, 'local_config.py'))
     except IOError:
         app.logger.warning("Could not load local_config.py")
 
