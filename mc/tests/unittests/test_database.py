@@ -9,7 +9,7 @@ from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.models import db, Commit, Build
 
-class TestDatabase(TestCase):
+class TestModels(TestCase):
     """
     Test flask-sqlalchemy database operations
     """
@@ -42,9 +42,9 @@ class TestDatabase(TestCase):
         db.session.remove()
         db.drop_all()
 
-    def test_commits(self):
+    def test_commit_model(self):
         """
-        CRUD on Commits
+        CRUD on models.Commit
         """
 
         # Create
@@ -66,6 +66,35 @@ class TestDatabase(TestCase):
         db.session.delete(c)
         db.session.commit()
         self.assertIsNone(Commit.query.first())
+
+    def test_build_model(self):
+        """
+        CRUD on models.Build
+        """
+
+        # Create
+        commit = Commit(commit_hash='test-hash')
+        db.session.add(commit)
+        build = Build(commit=commit)
+        db.session.commit()
+
+        # Read
+        b = build.query.first()
+        self.assertEqual(b, build)
+        self.assertEqual(b.commit, commit)
+
+        # Update
+        b.no_cache = True
+        b.commit = Commit(commit_hash='mutated')
+        db.session.commit()
+        self.assertEqual(Build.query.first().no_cache, True)
+        self.assertEqual(Build.query.first().commit.commit_hash, 'mutated')
+
+        # Delete
+        b = Build.query.first()
+        db.session.delete(b)
+        db.session.commit()
+        self.assertIsNone(Build.query.first())
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
