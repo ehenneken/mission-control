@@ -74,7 +74,7 @@ def create_jinja2(template_dir=None):
     :return: jinja2.Environment instance
     """
     if template_dir is None:
-        template_dir = os.path.join(os.path.dirname(__file__), '/templates')
+        template_dir = os.path.join(os.path.dirname(__file__), 'templates')
     loader = jinja2.FileSystemLoader(template_dir)
     return jinja2.Environment(loader=loader)
 

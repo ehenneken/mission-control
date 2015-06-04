@@ -1,0 +1,11 @@
+{% extends "docker/base.python.template" %}
+
+{% block cron %}
+COPY cronjob.sh /cronjob.sh
+RUN crontab /cronjob.sh
+{% endblock %}
+
+{% block etc %}
+# A better strategy should definitely deprecate this
+COPY common.py.monkeypatch /usr/local/lib/python2.7/dist-packages/oauthlib/common.py
+{% endblock %}

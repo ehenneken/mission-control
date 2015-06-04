@@ -1,0 +1,22 @@
+FROM phusion/baseimage
+
+RUN apt-get update
+{% block packages %}
+RUN apt-get install -y git python-pip python-dev libpq-dev
+RUN pip install --upgrade pip gunicorn psycopg2
+{% endblock %}
+
+WORKDIR /app
+RUN git clone https://github.com/adsabs/{{commit.repository}} /app
+RUN git checkout {{commit.commit_hash}}
+RUN pip install -r requirements.txt
+
+{% block cron %}{% endblock %}
+{% block etc %}{% endblock %}
+
+COPY gunicorn/gunicorn.conf.py /app/gunicorn.conf.py
+COPY gunicorn/gunicorn.sh /etc/service/gunicorn/run
+
+EXPOSE 80
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+CMD ["/sbin/my_init"]
