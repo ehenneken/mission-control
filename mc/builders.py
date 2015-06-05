@@ -98,9 +98,20 @@ class DockerBuilder(Builder):
         runs docker build with the tarfile context
         """
         docker = Client()
-        res = docker.build(fileobj=self.tarfile, custom_context=True)
-        for i in res:
-            print i
+        status = docker.build(
+            fileobj=self.tarfile,
+            custom_context=True,
+            tag="adsabs/{}:{}".format(self.repo, self.commit.commit_hash),
+            pull=True,
+            nocache=True,
+            rm=True,
+        )
+
+        for line in status:  # This effectively blocks on `docker build`
+            try:
+                current_app.logger.debug(line)
+            except RuntimeError:  # Outside of application context
+                print line
 
 
 
