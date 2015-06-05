@@ -7,7 +7,7 @@ from docker import Client
 from jinja2 import TemplateNotFound
 from mc.app import create_celery, create_jinja2
 from mc.models import db, Build
-from builders import DockerBuilder
+from mc.builders import DockerBuilder
 
 celery = create_celery()
 
