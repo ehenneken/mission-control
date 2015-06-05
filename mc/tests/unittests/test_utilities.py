@@ -17,11 +17,8 @@ from mc import app
 from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature
 from mc.tests.stubdata.github_webhook_payload import payload
-from mc.tasks import render_template
-from mc.models import Commit
 
 from flask.ext.testing import TestCase
-from jinja2 import TemplateNotFound
 
 class FakeRequest:
     """
@@ -52,25 +49,6 @@ class TestUtilities(TestCase):
         app_.config['SQLALCHEMY_DATABASE_URI'] = "sqlite://"
         app_.config['GITHUB_SECRET'] = 'unittest-secret'
         return app_
-
-    def test_render_template(self):
-        """
-        Tests that the mc.tasks.render_template function returns a string that
-        contains the incomminig commit's hash and repository
-        """
-        c = Commit(
-            commit_hash="test-hash",
-            repository="doesn't exist"
-        )
-        with self.assertRaises(TemplateNotFound):
-            t = render_template(c)
-
-        c.repository = "adsws"
-        t = render_template(c)
-        self.assertIsInstance(t, basestring)
-        self.assertIn(c.repository, t)
-        self.assertIn(c.commit_hash, t)
-
 
     def test_verify_signature(self):
         """
