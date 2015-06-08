@@ -30,4 +30,3 @@ class Build(db.Model):
         backref=db.backref('builds', lazy='dynamic')
     )
     timestamp = Column(DateTime)
-    no_cache = Column(Boolean)
