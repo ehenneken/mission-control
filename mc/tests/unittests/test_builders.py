@@ -50,15 +50,14 @@ class TestDockerBuilder(unittest.TestCase):
         self.assertIsInstance(self.builder.tarfile, io.BytesIO)
         self.assertGreater(len(self.builder.tarfile.readlines()), 0)
 
-    def test_docker_build(self):
-        """
-        Tests that docker build (using a mocked docker client) returns
-        as expected
-        """
-        pass
-        #self.builder.get_templates()
-        #self.builder.create_docker_context()
-        #self.builder.build()
+    # def test_docker_build(self):
+    #     """
+    #     Tests that docker build (using a mocked docker client) returns
+    #     as expected
+    #     """
+    #     self.builder.get_templates()
+    #     self.builder.create_docker_context()
+    #     self.builder.build()
 
 
 
