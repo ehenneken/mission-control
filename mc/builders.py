@@ -1,13 +1,10 @@
 from flask import current_app
 from docker import Client
-from jinja2 import TemplateNotFound
-from mc.app import create_celery, create_jinja2
-from mc.models import db, Build
+from mc.app import create_jinja2
+from mc.exceptions import BuildError
 import os
 import tarfile
 import io
-
-templates = create_jinja2()
 
 
 class Builder(object):
@@ -18,7 +15,9 @@ class Builder(object):
         self.commit = commit
         self.repo = commit.repository
         self.templates = create_jinja2()
+        self.tag = "adsabs/{}:{}".format(self.repo, self.commit.commit_hash)
         self.files = []
+        self.tarfile = None
 
     def build(self):
         """
@@ -32,6 +31,16 @@ class DockerBuilder(Builder):
     Class responsible for finding the correct templates, rendering them,
     creating a build context, executing docker build, and executing docker push
     """
+
+    def run(self):
+        """
+        Shortcut method that calls all the methods in the correct order
+        to build and push an image
+        """
+        self.get_templates()
+        self.create_docker_context()
+        self.build()
+        self.push()
 
     def get_templates(self):
         """
@@ -67,12 +76,12 @@ class DockerBuilder(Builder):
         })
 
         # cron/, etc/ iif there exists a `self.repo` directory
-        def filter(p):
+        def _filter(p):
             return ("cron/" in p or "etc/" in p) and (self.repo in p) and \
                    (not os.path.basename(p).startswith('.'))
 
         for t in self.templates.list_templates(
-                filter_func=filter):
+                filter_func=_filter):
 
             self.files.append({
                 'name': os.path.basename(t),
@@ -101,7 +110,7 @@ class DockerBuilder(Builder):
         status = docker.build(
             fileobj=self.tarfile,
             custom_context=True,
-            tag="adsabs/{}:{}".format(self.repo, self.commit.commit_hash),
+            tag=self.tag,
             pull=True,
             nocache=True,
             rm=True,
@@ -112,9 +121,27 @@ class DockerBuilder(Builder):
                 current_app.logger.debug(line)
             except RuntimeError:  # Outside of application context
                 print line
+        if "successfully built" not in line.lower():
+            raise BuildError("Failed to build {}: {}".format(self.tag, line))
 
+    def push(self):
+        """
+        Runs docker push
+        """
 
+        docker = Client()
+        status = docker.push(
+            self.tag,
+            stream=True,
+        )
 
+        for line in status:  # This effectively blocks on `docker push`
+            try:
+                current_app.logger.debug(line)
+            except RuntimeError:  # Outside of application context
+                print line
+        if "pushing tag" not in line.lower():
+            raise BuildError("Failed to push {}: {}".format(self.tag, line))
 
 
 
