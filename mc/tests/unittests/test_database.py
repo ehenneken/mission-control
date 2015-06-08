@@ -8,6 +8,7 @@ import unittest
 from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.models import db, Commit, Build
+import datetime
 
 
 class TestModels(TestCase):
@@ -49,13 +50,17 @@ class TestModels(TestCase):
         """
 
         # Create
-        commit = Commit(commit_hash='test-hash')
+        commit = Commit(
+            commit_hash='test-hash',
+            timestamp=datetime.datetime(2015, 10, 10),
+        )
         db.session.add(commit)
         db.session.commit()
 
         # Read
         c = Commit.query.first()
         self.assertEqual(c, commit)
+        self.assertEqual(c.timestamp, commit.timestamp)
 
         # Update
         c.commit_hash = 'mutated'

@@ -3,10 +3,9 @@ Views
 """
 import hmac
 import hashlib
-
+import datetime
 from flask import current_app, request, abort
 from flask.ext.restful import Resource
-
 from mc.exceptions import NoSignatureInfo, InvalidSignature
 from mc.models import db, Commit
 
@@ -64,7 +63,10 @@ class GithubListener(Resource):
 
         return Commit(
             commit_hash=payload['head_commit']['id'],
-            timestamp=payload['head_commit']['timestamp'],
+            timestamp=datetime.datetime.strptime(
+                payload['head_commit']['timestamp'],
+                '%Y-%m-%dT%H:%M:%SZ',
+            ),
             author=payload['head_commit']['author']['username'],
             repository=payload['repository']['name'],
         )

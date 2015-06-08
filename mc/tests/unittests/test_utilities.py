@@ -12,7 +12,7 @@ import unittest
 import hmac
 import hashlib
 import json
-
+import datetime
 from mc import app
 from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature
@@ -94,6 +94,7 @@ class TestUtilities(TestCase):
         )
         self.assertEqual(c.author, 'vsudilov')
         self.assertEqual(c.repository, 'mission-control')
+        self.assertEqual(c.timestamp, datetime.datetime(2015, 6, 3, 12, 26, 57))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
