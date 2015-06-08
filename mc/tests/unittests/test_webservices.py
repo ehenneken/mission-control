@@ -10,10 +10,11 @@ sys.path.append(PROJECT_HOME)
 import unittest
 import app
 from flask.ext.testing import TestCase
+from flask import url_for
 
-class TestWebservices(TestCase):
+class TestEndpoints(TestCase):
     """
-    Tests that each route is an http response
+    Tests http endpoints
     """
   
     def create_app(self):
@@ -22,7 +23,19 @@ class TestWebservices(TestCase):
         """
         app_ = app.create_app()
         app_.config['SQLALCHEMY_DATABASE_URI'] = "sqlite://"
+        app_.config['MC_LOGGING'] = {}
         return app_
+
+    def test_githublistener_endpoint(self):
+        """
+        Test basic functionality of the GithubListener endpoint
+        """
+        url = url_for('GithubListener'.lower())
+        r = self.client.get(url)
+        self.assertStatus(r, 405)  # Method not allowed
+        r = self.client.post(url)
+        self.assertStatus(r, 400)  # No signature given
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
