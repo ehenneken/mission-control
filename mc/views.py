@@ -9,7 +9,6 @@ from flask.ext.restful import Resource
 
 from mc.exceptions import NoSignatureInfo, InvalidSignature
 from mc.models import db, Commit
-from mc.tasks import build_docker
 
 
 class GithubListener(Resource):
@@ -86,7 +85,15 @@ class GithubListener(Resource):
         commit = GithubListener.parse_github_payload(request)
         db.session.add(commit)
         db.session.commit()
+
+        # Causes circular import if left at the top; views->tasks->app->views
+        # This is due to that fact that celery does not have a defereed setup,
+        # ie no init_app method since it is not an extension.
+        # See https://github.com/Robpol86/Flask-Celery-Helper for a possible
+        # flask-extension to use in the future
+        from mc.tasks import build_docker
         build_docker.delay(commit)
+
         return {"build": "{}:{}".format(commit.repository, commit.commit_hash)}
 
 

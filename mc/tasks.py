@@ -7,9 +7,8 @@ from flask import current_app
 from mc.app import create_celery
 from mc.models import db, Build
 from mc.builders import DockerBuilder
-from flask import Flask
 
-celery = create_celery(Flask('test'))
+celery = create_celery()
 
 
 @celery.task()

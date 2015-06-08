@@ -9,6 +9,7 @@ from celery import Celery
 import jinja2
 from flask import Flask
 from flask.ext.restful import Api
+from mc.views import GithubListener
 
 
 def create_app(name="mission-control"):
@@ -18,13 +19,6 @@ def create_app(name="mission-control"):
     :param name: name of the application
     :return: flask.Flask application
     """
-
-    # Causes circular import if left at the top; views->tasks->app->views
-    # This is due to that fact that celery does not have a defereed setup,
-    # ie no init_app method since it is not an extension.
-    # See https://github.com/Robpol86/Flask-Celery-Helper for a possible
-    # flask-extension to use in the future
-    from mc.views import GithubListener
 
     app = Flask(name, static_folder=None)
     app.url_map.strict_slashes = False
