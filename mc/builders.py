@@ -18,6 +18,8 @@ class Builder(object):
         self.tag = "adsabs/{}:{}".format(self.repo, self.commit.commit_hash)
         self.files = []
         self.tarfile = None
+        self.built = False
+        self.pushed = False
 
     def build(self):
         """
@@ -124,6 +126,8 @@ class DockerBuilder(Builder):
         if "successfully built" not in line.lower():
             raise BuildError("Failed to build {}: {}".format(self.tag, line))
 
+        self.built = True
+
     def push(self):
         """
         Runs docker push
@@ -142,6 +146,8 @@ class DockerBuilder(Builder):
                 print line
         if "pushing tag" not in line.lower():
             raise BuildError("Failed to push {}: {}".format(self.tag, line))
+
+        self.pushed = True
 
 
 
