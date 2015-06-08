@@ -9,6 +9,7 @@ from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.models import db, Commit, Build
 
+
 class TestModels(TestCase):
     """
     Test flask-sqlalchemy database operations
@@ -24,6 +25,7 @@ class TestModels(TestCase):
         # Use an in-memory sqlite database to ensure that no production data
         # are touched
         _app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite://"
+        _app.config['MC_LOGGING'] = {}
         return _app
 
     def setUp(self):
@@ -32,7 +34,6 @@ class TestModels(TestCase):
         that a fresh database is used for each test.
         """
         db.create_all()
-
 
     def tearDown(self):
         """
