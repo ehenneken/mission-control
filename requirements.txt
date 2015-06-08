@@ -6,3 +6,4 @@ Flask-Migrate
 docker-py
 jinja2
 Celery
+mock
