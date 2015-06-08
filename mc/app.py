@@ -4,8 +4,7 @@ Application factory
 
 import logging.config
 import os
-from models import db
-
+from mc.models import db
 from celery import Celery
 import jinja2
 from flask import Flask
@@ -20,6 +19,13 @@ def create_app(name="mission-control"):
     :return: flask.Flask application
     """
 
+    # Causes circular import if left at the top; views->tasks->app->views
+    # This is due to that fact that celery does not have a defereed setup,
+    # ie no init_app method since it is not an extension.
+    # See https://github.com/Robpol86/Flask-Celery-Helper for a possible
+    # flask-extension to use in the future
+    from mc.views import GithubListener
+
     app = Flask(name, static_folder=None)
     app.url_map.strict_slashes = False
 
@@ -31,6 +37,7 @@ def create_app(name="mission-control"):
 
     # Register extensions
     api = Api(app)
+    api.add_resource(GithubListener, '/webhooks')
     db.init_app(app)
 
     return app

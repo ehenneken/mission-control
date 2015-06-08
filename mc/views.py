@@ -3,13 +3,13 @@ Views
 """
 import hmac
 import hashlib
-import datetime
 
 from flask import current_app, request, abort
 from flask.ext.restful import Resource
 
 from mc.exceptions import NoSignatureInfo, InvalidSignature
 from mc.models import db, Commit
+from mc.tasks import build_docker
 
 
 class GithubListener(Resource):
@@ -50,7 +50,6 @@ class GithubListener(Resource):
 
         return True
 
-
     @staticmethod
     def parse_github_payload(request=None):
         """
@@ -81,11 +80,17 @@ class GithubListener(Resource):
         try:
             GithubListener.verify_github_signature(request)
         except (NoSignatureInfo, InvalidSignature) as e:
-            current_app.logger.info("{}: {}".format(request.remote_addr, e))
+            current_app.logger.warning("{}: {}".format(request.remote_addr, e))
             abort(400)
 
-        db.session.add(GithubListener.parse_github_payload(request))
+        commit = GithubListener.parse_github_payload(request)
+        db.session.add(commit)
         db.session.commit()
+        build_docker.delay(commit)
+        return {"build": "{}:{}".format(commit.repository, commit.commit_hash)}
+
+
+
 
 
 
