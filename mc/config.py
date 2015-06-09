@@ -16,7 +16,7 @@ MC_LOGGING = {
             'formatter': 'default',
             'level': 'DEBUG',
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': 'logs/app.log',
+            'filename': 'app.log',
         },
         'console': {
             'formatter': 'default',
@@ -32,7 +32,7 @@ MC_LOGGING = {
     },
     'loggers': {
         '': {
-            'handlers': ['file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
         },
