@@ -5,10 +5,10 @@ Test webservices
 import sys
 import os
 PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../'))
+    os.path.join(os.path.dirname(__file__), '../../../'))
 sys.path.append(PROJECT_HOME)
 import unittest
-import app
+from mc import app
 from flask.ext.testing import TestCase
 from flask import url_for
 
