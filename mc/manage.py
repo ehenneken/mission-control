@@ -2,15 +2,20 @@
 Example manage.py script, which is responsible for providing a command-line
 interface to application specific tasks, such as managing databases.
 """
+import os, sys
+PROJECT_HOME = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(PROJECT_HOME)
 
 from flask.ext.script import Manager, Command
 from flask.ext.migrate import Migrate, MigrateCommand
-from models import db
-from app import create_app
+from mc.models import db
+from mc.app import create_app
 
 app = create_app()
 migrate = Migrate(app, db)
 manager = Manager(app)
+
 
 class CreateDatabase(Command):
     """
@@ -18,7 +23,7 @@ class CreateDatabase(Command):
     """
 
     def run(self):
-        with create_app().app_context():
+        with app.app_context():
             db.create_all()
 
 
