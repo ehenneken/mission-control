@@ -52,7 +52,8 @@ def create_celery(app=None):
 
     celery = Celery(
         app.import_name,
-        broker=app.config.get('CELERY_BROKER_URL')
+        broker=app.config.get('CELERY_BROKER_URL'),
+        backend=app.config.get('CELERY_BROKER_URL'),
     )
     celery.conf.update(app.config)
     TaskBase = celery.Task
