@@ -108,7 +108,7 @@ class DockerBuilder(Builder):
         """
         runs docker build with the tarfile context
         """
-        docker = Client()
+        docker = Client(version='auto')
         status = docker.build(
             fileobj=self.tarfile,
             custom_context=True,
@@ -133,7 +133,7 @@ class DockerBuilder(Builder):
         Runs docker push
         """
 
-        docker = Client()
+        docker = Client(version='auto')
         status = docker.push(
             self.tag,
             stream=True,
