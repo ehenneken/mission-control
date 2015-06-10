@@ -47,23 +47,25 @@ class TestDockerBuilder(unittest.TestCase):
         self.assertIsInstance(self.builder.tarfile, io.BytesIO)
         self.assertGreater(len(self.builder.tarfile.readlines()), 0)
 
-    @mock.patch('docker.Client.build', lambda *args, **kwargs:
-                ["successfully built"])
-    def test_docker_build(self):
+    @mock.patch('mc.builders.Client')
+    def test_docker_build(self, mocked):
         """
         Tests that docker build (using a mocked docker client) returns
         as expected
         """
+        instance = mocked.return_value
+        instance.build.return_value = ['Successfully built']
         self.builder.build()
         self.assertTrue(self.builder.built)
 
-    @mock.patch('docker.Client.push', lambda *args, **kwargs:
-                ["pushing tag"])
-    def test_docker_push(self):
+    @mock.patch('mc.builders.Client')
+    def test_docker_push(self, mocked):
         """
         Tests that docker push (using a mocked docker client) returns
         as expected
         """
+        instance = mocked.return_value
+        instance.push.return_value = ['pushing tag']
         self.builder.push()
         self.assertTrue(self.builder.pushed)
 
