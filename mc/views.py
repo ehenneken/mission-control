@@ -94,7 +94,7 @@ class GithubListener(Resource):
         # See https://github.com/Robpol86/Flask-Celery-Helper for a possible
         # flask-extension to use in the future
         from mc.tasks import build_docker
-        build_docker.delay(commit)
+        build_docker.delay(commit.id)
 
         return {"build": "{}:{}".format(commit.repository, commit.commit_hash)}
 
