@@ -53,7 +53,8 @@ class TestDockerBuildTask(TestCase):
             commit_hash='test-hash',
         )
         db.session.add(commit)
-        tasks.build_docker(commit)
+        db.session.commit()
+        tasks.build_docker(commit.id)
 
         build = db.session.query(Build).first()
         self.assertEqual(build.commit_id, commit.id)
