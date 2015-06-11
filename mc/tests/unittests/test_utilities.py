@@ -16,7 +16,7 @@ import datetime
 from dateutil.tz import tzoffset, tzlocal
 from mc import app
 from mc.views import GithubListener
-from mc.exceptions import NoSignatureInfo, InvalidSignature
+from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError
 from mc.tests.stubdata.github_webhook_payload import payload
 
 from flask.ext.testing import TestCase
@@ -87,14 +87,17 @@ class TestUtilities(TestCase):
         """
         r = FakeRequest()
         r.data = payload
+        with self.assertRaises(UnknownRepoError):
+            GithubListener.parse_github_payload(r)
 
+        r.data = r.data.replace('"name": "mission-control"', '"name": "adsws"')
         c = GithubListener.parse_github_payload(r)
         self.assertEqual(
             c.commit_hash,
             'bcdf7771aa10d78d865c61e5336145e335e30427'
         )
         self.assertEqual(c.author, 'vsudilov')
-        self.assertEqual(c.repository, 'mission-control')
+        self.assertEqual(c.repository, 'adsws')
         self.assertEqual(
             c.timestamp,
             datetime.datetime(2015, 6, 3, 12, 26, 57, tzinfo=tzlocal())

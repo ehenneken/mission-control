@@ -1,5 +1,18 @@
 GITHUB_SIGNATURE_HEADER = 'X-Hub-Signature'
 GITHUB_SECRET = 'redacted'
+WATCHED_REPOS = [
+    'adsws',
+    'solr-service',
+    'export_service',
+    'graphics_service',
+    'recommender_service',
+    'citation_helper_service',
+    'metrics_service',
+    'vis-services',
+    'biblib-service',
+    'orcid-service',
+]
+
 
 MC_LOGGING = {
     'version': 1,

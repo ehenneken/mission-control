@@ -3,11 +3,10 @@ Views
 """
 import hmac
 import hashlib
-import datetime
 from dateutil import parser
 from flask import current_app, request, abort
 from flask.ext.restful import Resource
-from mc.exceptions import NoSignatureInfo, InvalidSignature
+from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError
 from mc.models import db, Commit
 
 
@@ -61,12 +60,16 @@ class GithubListener(Resource):
             raise ValueError("No request object given")
 
         payload = request.get_json()
+        repo = payload['repository']['name']
+        if repo not in current_app.config.get('WATCHED_REPOS'):
+            raise UnknownRepoError("{}".format(repo))
+
 
         return Commit(
             commit_hash=payload['head_commit']['id'],
             timestamp=parser.parse(payload['head_commit']['timestamp']),
             author=payload['head_commit']['author']['username'],
-            repository=payload['repository']['name'],
+            repository=repo,
         )
 
     def post(self):
@@ -81,8 +84,10 @@ class GithubListener(Resource):
         except (NoSignatureInfo, InvalidSignature) as e:
             current_app.logger.warning("{}: {}".format(request.remote_addr, e))
             abort(400)
-
-        commit = GithubListener.parse_github_payload(request)
+        try:
+            commit = GithubListener.parse_github_payload(request)
+        except UnknownRepoError, e:
+            return {"Unknown repo": e}, 202  # 202 Accepted
         db.session.add(commit)
         db.session.commit()
 
