@@ -133,6 +133,17 @@ class DockerBuilder(Builder):
         Runs docker push
         """
 
+        # Need to set HOME such that the .dockercfg file is read from
+        # a non-default location.
+        # See https://github.com/docker/docker/issues/6141
+        try:
+            dh = current_app.config.get('DOCKER_HOME')
+            if dh:
+                #  Is it safe to not reset home after we're done here?
+                os.environ['HOME'] = dh
+        except RuntimeError:
+            pass
+
         docker = Client(version='auto')
         status = docker.push(
             self.tag,
