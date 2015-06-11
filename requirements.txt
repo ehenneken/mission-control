@@ -7,3 +7,4 @@ docker-py
 jinja2
 Celery
 mock
+dateutil

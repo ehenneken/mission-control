@@ -13,6 +13,7 @@ import hmac
 import hashlib
 import json
 import datetime
+from dateutil.tz import tzoffset, tzlocal
 from mc import app
 from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature
@@ -94,7 +95,20 @@ class TestUtilities(TestCase):
         )
         self.assertEqual(c.author, 'vsudilov')
         self.assertEqual(c.repository, 'mission-control')
-        self.assertEqual(c.timestamp, datetime.datetime(2015, 6, 3, 12, 26, 57))
+        self.assertEqual(
+            c.timestamp,
+            datetime.datetime(2015, 6, 3, 12, 26, 57, tzinfo=tzlocal())
+        )
+
+        r.data = r.data.replace(
+            "2015-06-03T12:26:57Z",
+            "2015-06-09T18:19:39+02:00"
+        )
+        c = GithubListener.parse_github_payload(r)
+        self.assertEqual(
+            c.timestamp,
+            datetime.datetime(2015, 6, 9, 18, 19, 39, tzinfo=tzoffset(None, 7200))
+        )
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

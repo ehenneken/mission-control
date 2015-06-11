@@ -9,6 +9,7 @@ from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.models import db, Commit, Build
 import datetime
+from dateutil.tz import tzlocal
 
 
 class TestModels(TestCase):
@@ -52,7 +53,7 @@ class TestModels(TestCase):
         # Create
         commit = Commit(
             commit_hash='test-hash',
-            timestamp=datetime.datetime(2015, 10, 10),
+            timestamp=datetime.datetime(2015, 6, 3, 12, 26, 57, tzinfo=tzlocal()),
         )
         db.session.add(commit)
         db.session.commit()
