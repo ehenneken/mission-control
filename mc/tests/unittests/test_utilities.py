@@ -121,6 +121,10 @@ class TestUtilities(TestCase):
         self.assertEqual(c.author, 'vsudilov')
         self.assertEqual(c.repository, 'adsws')
         self.assertEqual(
+            c.message,
+            "config: 's/SECRET_KEY/GITHUB_SECRET/g' for webhook secret"
+        )
+        self.assertEqual(
             c.timestamp,
             datetime.datetime(2015, 6, 3, 12, 26, 57, tzinfo=tzlocal())
         )

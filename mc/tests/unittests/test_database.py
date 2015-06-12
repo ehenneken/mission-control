@@ -55,6 +55,8 @@ class TestModels(TestCase):
         commit = Commit(
             commit_hash='test-hash',
             timestamp=datetime.datetime(2015, 6, 3, 12, 26, 57, tzinfo=tzlocal()),
+            repository="test-repo",
+            message="test-message",
         )
         db.session.add(commit)
         db.session.commit()

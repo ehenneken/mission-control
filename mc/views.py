@@ -11,6 +11,12 @@ from mc.models import db, Commit
 from sqlalchemy.orm.exc import NoResultFound
 
 
+class TestEnvironment(Resource):
+    """
+    Resource that
+    """
+
+
 class GithubListener(Resource):
     """
     github webhook logic and routes
@@ -79,6 +85,7 @@ class GithubListener(Resource):
                 timestamp=parser.parse(payload['head_commit']['timestamp']),
                 author=payload['head_commit']['author']['username'],
                 repository=repo,
+                message=payload['head_commit']['message'],
             )
 
     def post(self):
@@ -109,11 +116,6 @@ class GithubListener(Resource):
         build_docker.delay(commit.id)
 
         return {"received": "{}@{}".format(commit.repository, commit.commit_hash)}
-
-
-
-
-
 
 
 
