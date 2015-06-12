@@ -18,6 +18,7 @@ from mc import app
 from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError
 from mc.tests.stubdata.github_webhook_payload import payload
+from mc.models import db, Commit
 
 from flask.ext.testing import TestCase
 
@@ -50,6 +51,21 @@ class TestUtilities(TestCase):
         app_.config['SQLALCHEMY_DATABASE_URI'] = "sqlite://"
         app_.config['GITHUB_SECRET'] = 'unittest-secret'
         return app_
+
+    def setUp(self):
+        """
+        setUp and tearDown are run at the start of each test; ensure
+        that a fresh database is used for each test.
+        """
+        db.create_all()
+
+    def tearDown(self):
+        """
+        setUp and tearDown are run at the start of each test; ensure
+        that a fresh database is used for each test.
+        """
+        db.session.remove()
+        db.drop_all()
 
     def test_verify_signature(self):
         """
@@ -85,11 +101,17 @@ class TestUtilities(TestCase):
         Tests that a db.Commit object is created when passed an example
         github webhook payload
         """
+
+        # Set up fake payload
         r = FakeRequest()
         r.data = payload
+
+        # Unknown repos should raise UnknownRepoError
         with self.assertRaises(UnknownRepoError):
             GithubListener.parse_github_payload(r)
 
+        # Modify the data such that the payload refers to a known repo,
+        # assert that the returned models.Commit contains the expected data
         r.data = r.data.replace('"name": "mission-control"', '"name": "adsws"')
         c = GithubListener.parse_github_payload(r)
         self.assertEqual(
@@ -103,6 +125,8 @@ class TestUtilities(TestCase):
             datetime.datetime(2015, 6, 3, 12, 26, 57, tzinfo=tzlocal())
         )
 
+        # Assert that a different timeformat returns the expected
+        # models.Commit.timestamp value
         r.data = r.data.replace(
             "2015-06-03T12:26:57Z",
             "2015-06-09T18:19:39+02:00"
@@ -112,6 +136,20 @@ class TestUtilities(TestCase):
             c.timestamp,
             datetime.datetime(2015, 6, 9, 18, 19, 39, tzinfo=tzoffset(None, 7200))
         )
+
+        # Re-sending a previously saved commit payload should return that
+        # previously saved commit
+        db.session.add(c)
+        db.session.commit()
+        self.assertEqual(len(db.session.query(Commit).all()), 1)
+        c2 = GithubListener.parse_github_payload(r)
+        db.session.add(c2)
+        db.session.commit()
+        self.assertEqual(len(db.session.query(Commit).all()), 1)
+
+
+
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

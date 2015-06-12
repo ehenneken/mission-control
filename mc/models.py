@@ -13,7 +13,7 @@ class Commit(db.Model):
     Represents a git commit
     """
     id = Column(Integer, primary_key=True)
-    commit_hash = Column(String)
+    commit_hash = Column(String, unique=True)
     timestamp = Column(DateTime)
     author = Column(String)
     repository = Column(String)
@@ -30,3 +30,5 @@ class Build(db.Model):
         backref=db.backref('builds', lazy='dynamic')
     )
     timestamp = Column(DateTime)
+    built = Column(Boolean)
+    pushed = Column(Boolean)

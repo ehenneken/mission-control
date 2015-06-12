@@ -27,15 +27,22 @@ def build_docker(commit_id):
 
     commit = Commit.query.get(commit_id)
 
-    DockerBuilder(commit).run()
     build = Build(
         commit=commit,
         timestamp=datetime.datetime.now(),
     )
-    db.session.add(build)
-    db.session.commit()
-    current_app.logger.info("Build {} created: {}:{}".format(
-        build.id,
+    current_app.logger.info("Build created: {}:{}".format(
         commit.repository,
         commit.commit_hash,
     ))
+
+    try:
+        builder = DockerBuilder(commit)
+        builder.run()
+    except Exception, e:
+        current_app.logger.exception(e)
+
+    build.built = builder.built
+    build.pushed = builder.pushed
+    db.session.add(build)
+    db.session.commit()

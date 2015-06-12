@@ -8,6 +8,7 @@ from flask import current_app, request, abort
 from flask.ext.restful import Resource
 from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError
 from mc.models import db, Commit
+from sqlalchemy.orm.exc import NoResultFound
 
 
 class GithubListener(Resource):
@@ -52,6 +53,8 @@ class GithubListener(Resource):
     def parse_github_payload(request=None):
         """
         parses a github webhook message to create a models.Commit instance
+        If that commit is already in the database, it instead returns that
+        commit
         :param request: request containing the header and body
         :return: models.Commit based on the incoming payload
         """
@@ -61,16 +64,22 @@ class GithubListener(Resource):
 
         payload = request.get_json()
         repo = payload['repository']['name']
+        commit_hash = payload['head_commit']['id']
         if repo not in current_app.config.get('WATCHED_REPOS'):
             raise UnknownRepoError("{}".format(repo))
 
-
-        return Commit(
-            commit_hash=payload['head_commit']['id'],
-            timestamp=parser.parse(payload['head_commit']['timestamp']),
-            author=payload['head_commit']['author']['username'],
-            repository=repo,
-        )
+        try:
+            return Commit.query.filter_by(
+                commit_hash=commit_hash,
+                repository=repo
+            ).one()
+        except NoResultFound:
+            return Commit(
+                commit_hash=commit_hash,
+                timestamp=parser.parse(payload['head_commit']['timestamp']),
+                author=payload['head_commit']['author']['username'],
+                repository=repo,
+            )
 
     def post(self):
         """
@@ -99,7 +108,7 @@ class GithubListener(Resource):
         from mc.tasks import build_docker
         build_docker.delay(commit.id)
 
-        return {"build": "{}:{}".format(commit.repository, commit.commit_hash)}
+        return {"received": "{}@{}".format(commit.repository, commit.commit_hash)}
 
 
 

@@ -10,6 +10,7 @@ from mc.app import create_app
 from mc.models import db, Commit, Build
 import datetime
 from dateutil.tz import tzlocal
+from sqlalchemy.exc import IntegrityError
 
 
 class TestModels(TestCase):
@@ -58,10 +59,20 @@ class TestModels(TestCase):
         db.session.add(commit)
         db.session.commit()
 
+        # commit_hash should be unique
+        _ = Commit(commit_hash='test-hash')
+        with self.assertRaises(IntegrityError):
+            db.session.add(_)
+            db.session.commit()
+        db.session.remove()
+
         # Read
         c = Commit.query.first()
-        self.assertEqual(c, commit)
-        self.assertEqual(c.timestamp, commit.timestamp)
+        self.assertEqual(c.commit_hash, 'test-hash')
+        self.assertEqual(
+            c.timestamp,
+            datetime.datetime(2015, 6, 3, 12, 26, 57)
+        )
 
         # Update
         c.commit_hash = 'mutated'
@@ -82,7 +93,7 @@ class TestModels(TestCase):
         # Create
         commit = Commit(commit_hash='test-hash')
         db.session.add(commit)
-        build = Build(commit=commit)
+        build = Build(commit=commit, built=False, pushed=False)
         db.session.commit()
 
         # Read
