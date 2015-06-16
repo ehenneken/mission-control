@@ -1,16 +1,20 @@
 from flask import current_app
 from docker import Client
+from docker.utils import create_host_config
 from mc.app import create_jinja2
 from mc.exceptions import BuildError
 import os
+import logging
 import tarfile
 import io
 
 
-class Builder(object):
+class DockerImageBuilder(object):
     """
-    Base builder class
+    Class responsible for finding the correct templates, rendering them,
+    creating a build context, executing docker build, and executing docker push
     """
+
     def __init__(self, commit):
         self.commit = commit
         self.repo = commit.repository
@@ -20,19 +24,6 @@ class Builder(object):
         self.tarfile = None
         self.built = False
         self.pushed = False
-
-    def build(self):
-        """
-        Each class should implement their own build method
-        """
-        raise NotImplementedError
-
-
-class DockerBuilder(Builder):
-    """
-    Class responsible for finding the correct templates, rendering them,
-    creating a build context, executing docker build, and executing docker push
-    """
 
     def run(self):
         """
@@ -159,6 +150,82 @@ class DockerBuilder(Builder):
             raise BuildError("Failed to push {}: {}".format(self.tag, line))
 
         self.pushed = True
+
+
+class DockerRunner(object):
+    """
+    Responsible for pulling a docker image, creating a container, running
+    the container, then tearing down the container
+    """
+
+    def __init__(self, image, name, mem_limit="100m", **kwargs):
+        """
+        :param image: full name of the docker image to pull
+        :param name: name of the container in `docker run --name`
+        :param mem_limit: Memory limit to enforce on the container
+        :param kwargs: keyword args to pass direclty to
+            docker.utils.create_host_config
+        """
+        self.image = image
+        self.name = name
+        self.mem_limit = mem_limit
+        self.host_config = create_host_config(**kwargs)
+
+        self.client = Client(version='auto')
+        self.running = None
+        self.container = None
+        try:
+            self.logger = current_app.logger
+        except RuntimeError:  # Outside of application context
+            self.logger = logging.getLogger("{}-builder".format(self.name))
+            self.logger.setLevel(logging.DEBUG)
+        self.setup()
+
+    def setup(self):
+        """
+        Pull the image and create a container with host_config
+        :return: None
+        """
+        self.client.pull(self.image)
+        self.logger.debug("Pulled {}".format(self.image))
+        self.container = self.client.create_container(
+            image=self.image,
+            host_config=self.host_config,
+            name=self.name,
+            mem_limit=self.mem_limit,
+        )
+        self.logger.debug("Created container {}".format(self.container['Id']))
+
+    def start(self, callback=None):
+        """
+        Starts the container, and optionally executes a callback that is passed
+        the container's info
+        :param callback: Optional callback function that is called after
+            the container is up. Useful for running more fine-grained container
+            provisioning.
+        :return: None
+        """
+        response = self.client.start(container=self.container['Id'])
+        if response:
+            self.logger.warning(response)
+
+        if callable(callback):
+            callback(self.container)
+
+    def teardown(self):
+        """
+        Stops and removes the docker container.
+        :return: None
+        """
+        response = self.client.stop(container=self.container['Id'])
+        if response:
+            self.logger.warning(response)
+
+        response = self.client.remove_container(container=self.container['Id'])
+        if response:
+            self.logger.warning(response)
+
+
 
 
 

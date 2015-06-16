@@ -7,7 +7,7 @@ from flask import current_app
 from mc.app import create_celery
 
 from mc.models import db, Build, Commit
-from mc.builders import DockerBuilder
+from mc.builders import DockerImageBuilder
 
 celery = create_celery()
 
@@ -37,7 +37,7 @@ def build_docker(commit_id):
     ))
 
     try:
-        builder = DockerBuilder(commit)
+        builder = DockerImageBuilder(commit)
         builder.run()
     except Exception, e:
         current_app.logger.exception(e)
