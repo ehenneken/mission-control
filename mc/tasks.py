@@ -7,9 +7,48 @@ from flask import current_app
 from mc.app import create_celery
 
 from mc.models import db, Build, Commit
-from mc.builders import DockerImageBuilder
+from mc.builders import DockerImageBuilder, DockerRunner
 
 celery = create_celery()
+
+@celery.task()
+def make_test_environment(test_id, config=None):
+    """
+    Creates the test environment:
+      - Run dependency containers
+      - Provision dependency containers, if necessary
+      - Run the microservices
+      - Run the tests
+    :param config: Config detailing which versions and services to provision
+    :type config: dict
+    :return: None
+    """
+
+    dependencies = config.setdefault('dependencies', [
+        {
+            "name": "redis",
+            "image": "redis",
+            "callback": None,
+        },
+        {
+            "name": "consul",
+            "image": "consul",
+            "callback": provision_consol,
+        },
+        {
+            "name": "postgres",
+            "image": "postgres",
+            "callback": provision_psql,
+        },
+    ])
+
+    for d in dependencies:
+        builder = DockerRunner(
+            image=d['image'],
+            name="{}-{}".format(d['name'], test_id),
+        )
+        builder.start(callback=d['callback'])
+
 
 
 @celery.task()
