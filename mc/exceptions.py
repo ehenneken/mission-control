@@ -41,3 +41,13 @@ class UnknownRepoError(Exception):
         self.value = value
     def __str__(self):
         return repr(self.value)
+
+
+class UnknownServiceError(Exception):
+    """
+    Raised when a service is not known to mc
+    """
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)

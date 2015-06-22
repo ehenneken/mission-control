@@ -19,8 +19,10 @@ from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError
 from mc.tests.stubdata.github_webhook_payload import payload
 from mc.models import db, Commit
+from mc.utils import ChangeDir
 
 from flask.ext.testing import TestCase
+
 
 class FakeRequest:
     """
@@ -38,9 +40,25 @@ class FakeRequest:
         return self.json
 
 
-class TestUtilities(TestCase):
+class TestUtilities(unittest.TestCase):
     """
-    Test standalone utilities and staticmethods
+    Test utility functions in utils.py
+    """
+
+    def test_ChangeDir(self):
+        """
+        ChangeDir context manager should change the directory on enter, and
+        revert back to the last direction on exit
+        """
+        current = os.path.abspath(os.curdir)
+        with ChangeDir('~/'):
+            self.assertEqual(os.path.abspath(os.curdir), os.path.expanduser('~'))
+        self.assertEqual(os.path.abspath(os.curdir), current)
+
+
+class TestStaticMethodUtilities(TestCase):
+    """
+    Test standalone staticmethods
     """
 
     def create_app(self):
@@ -150,10 +168,6 @@ class TestUtilities(TestCase):
         db.session.add(c2)
         db.session.commit()
         self.assertEqual(len(db.session.query(Commit).all()), 1)
-
-
-
-
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

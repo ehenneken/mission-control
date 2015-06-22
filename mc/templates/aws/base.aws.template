@@ -1,0 +1,10 @@
+{
+  "AWSEBDockerrunVersion": 2,
+  {% block volumes %}
+  "volumes": [],
+  {% endblock %}
+  "containerDefinitions": [
+    {% block containers %}
+    {% endblock %}
+
+}

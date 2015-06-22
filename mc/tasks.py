@@ -8,8 +8,10 @@ from mc.app import create_celery
 
 from mc.models import db, Build, Commit
 from mc.builders import DockerImageBuilder, DockerRunner
+from mc.provisioners import PostgresProvisioner
 
 celery = create_celery()
+
 
 @celery.task()
 def make_test_environment(test_id, config=None):

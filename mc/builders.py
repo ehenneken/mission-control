@@ -15,11 +15,15 @@ class DockerImageBuilder(object):
     creating a build context, executing docker build, and executing docker push
     """
 
-    def __init__(self, commit):
+    def __init__(self, commit, namespace="adsabs"):
         self.commit = commit
         self.repo = commit.repository
         self.templates = create_jinja2()
-        self.tag = "adsabs/{}:{}".format(self.repo, self.commit.commit_hash)
+        self.tag = "{}/{}:{}".format(
+            namespace,
+            self.repo,
+            self.commit.commit_hash
+        )
         self.files = []
         self.tarfile = None
         self.built = False
