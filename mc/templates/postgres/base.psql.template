@@ -2,7 +2,10 @@ psql {{ psql_args }} -c "CREATE DATABASE {{ database }};";
 psql {{ psql_args }} -c "CREATE USER {{ user }};";
 psql {{ psql_args }} -c "ALTER DATABASE {{ database }} OWNER TO {{ user }};";
 
-psql {{ psql_args }} --database {{ database }} < {{ database }}/{{ database  }}.schema.sql;
-if [ -e {{ database }}/{{ database }}.data.sql ]; then
-    psql {{ psql_args }} --database {{ database }} -c "COPY t FROM STDIN" < {{ database }}/{{ database }}.data.sql;
-fi;
+psql {{ psql_args }} --db {{ database }} < {{ database }}/{{ database }}.schema.sql;
+
+DATAFILES=`ls {{ database }}/*.data.sql`
+for f in $DATAFILES; do
+    table=`echo "$d"|cut -d. -f1`
+    psql {{ psql_args }} --db {{ database }} -c "COPY $table FROM STDIN" < {{ database }}/$f;
+done
