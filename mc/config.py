@@ -13,6 +13,14 @@ WATCHED_REPOS = [
     'orcid-service',
 ]
 
+# Local dependencies for the testing environment
+DEPENDENCIES = {
+    'POSTGRES': {
+        'USERNAME': 'postgres',
+        'PORT': 5432,
+        'HOST': 'localhost',
+    }
+}
 
 MC_LOGGING = {
     'version': 1,
@@ -25,28 +33,16 @@ MC_LOGGING = {
         }
     },
     'handlers': {
-        'file': {
-            'formatter': 'default',
-            'level': 'DEBUG',
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': 'app.log',
-        },
         'console': {
             'formatter': 'default',
             'level': 'DEBUG',
             'class': 'logging.StreamHandler'
         },
-#        'syslog': {
-#            'formatter': 'default',
-#            'level': 'DEBUG',
-#            'class': 'logging.handlers.SysLogHandler',
-#            'address': '/dev/log'
-#        }
     },
     'loggers': {
         '': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': True,
         },
     },
