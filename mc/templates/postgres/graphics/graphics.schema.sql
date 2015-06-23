@@ -90,13 +90,13 @@ CREATE INDEX ix_graphics_bibcode ON graphics USING btree (bibcode);
 
 
 --
--- Name: public; Type: ACL; Schema: -; Owner: adsabs
+-- Name: public; Type: ACL; Schema: -; Owner: graphics
 --
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
-REVOKE ALL ON SCHEMA public FROM adsabs;
+REVOKE ALL ON SCHEMA public FROM graphics;
 GRANT ALL ON SCHEMA public TO adsabs;
-GRANT ALL ON SCHEMA public TO PUBLIC;
+GRANT ALL ON SCHEMA public TO graphics;
 
 
 --

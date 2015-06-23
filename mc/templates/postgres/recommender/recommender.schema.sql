@@ -313,12 +313,12 @@ CREATE INDEX ix_reads_cookie ON reads USING btree (cookie);
 
 
 --
--- Name: public; Type: ACL; Schema: -; Owner: adsabs
+-- Name: public; Type: ACL; Schema: -; Owner: recommender
 --
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
-REVOKE ALL ON SCHEMA public FROM adsabs;
-GRANT ALL ON SCHEMA public TO adsabs;
+REVOKE ALL ON SCHEMA public FROM recommender;
+GRANT ALL ON SCHEMA public TO recommender;
 GRANT ALL ON SCHEMA public TO PUBLIC;
 
 

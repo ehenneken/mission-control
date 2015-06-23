@@ -293,12 +293,12 @@ ALTER TABLE ONLY permissions
 
 
 --
--- Name: public; Type: ACL; Schema: -; Owner: adsabs
+-- Name: public; Type: ACL; Schema: -; Owner: biblib
 --
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
-REVOKE ALL ON SCHEMA public FROM adsabs;
-GRANT ALL ON SCHEMA public TO adsabs;
+REVOKE ALL ON SCHEMA public FROM biblib;
+GRANT ALL ON SCHEMA public TO biblib;
 GRANT ALL ON SCHEMA public TO PUBLIC;
 
 

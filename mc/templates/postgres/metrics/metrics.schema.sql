@@ -99,7 +99,7 @@ CREATE UNIQUE INDEX ix_metrics_bibcode ON metrics USING btree (bibcode);
 
 
 --
--- Name: public; Type: ACL; Schema: -; Owner: adsabs
+-- Name: public; Type: ACL; Schema: -; Owner: metrics
 --
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;

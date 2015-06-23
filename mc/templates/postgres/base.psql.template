@@ -1,11 +1,15 @@
+#!/bin/bash
+
 psql {{ psql_args }} -c "CREATE DATABASE {{ database }};";
 psql {{ psql_args }} -c "CREATE USER {{ user }};";
 psql {{ psql_args }} -c "ALTER DATABASE {{ database }} OWNER TO {{ user }};";
 
-psql {{ psql_args }} --db {{ database }} < {{ database }}/{{ database }}.schema.sql;
-
-DATAFILES=`ls {{ database }}/*.data.sql`
-for f in $DATAFILES; do
-    table=`echo "$d"|cut -d. -f1`
-    psql {{ psql_args }} --db {{ database }} -c "COPY $table FROM STDIN" < {{ database }}/$f;
-done
+cd {{ database }}
+psql {{ psql_args }} --db {{ database }} < {{ database }}.schema.sql;
+for f in *.data.sql; do
+    if [ -e "$f" ]; then
+        table=`echo "$f"|cut -d. -f1`;
+        psql {{ psql_args }} --db {{ database }} -c "COPY $table FROM STDIN" < $table.data.sql;
+    fi;
+done;
+cd -
