@@ -35,8 +35,9 @@ class ScriptProvisioner(object):
             shell = self.shell
 
         with ChangeDir(directory):
-            while self.scripts:
-                script = self.scripts.pop()
+            scripts = list(self.scripts)
+            while scripts:
+                script = scripts.pop()
                 p = subprocess.Popen(script, shell=shell)
                 p.wait()
                 self.processes["{}".format(script)] = p
@@ -47,14 +48,16 @@ class PostgresProvisioner(ScriptProvisioner):
     Provisioner for a postgres database.
     """
 
-    _KNOWN_SERVICES = ['adsws', 'metrics', 'biblib']
+    # TODO: This should be based on what templates are discoverable, not
+    # hard coded!
+    _KNOWN_SERVICES = ['adsws', 'metrics', 'biblib', 'graphics', 'recommender']
 
     def __init__(self, services):
         """
         :param services: iterable of services to provision. Provisioning
             happens in the same order as they are defined
         """
-        self.process = None
+        self.processes = OrderedDict()
         self.shell = True
         services = [services] if isinstance(services, basestring) else services
         if set(services).difference(self._KNOWN_SERVICES):
@@ -70,10 +73,9 @@ class PostgresProvisioner(ScriptProvisioner):
             self.services[s] = template.render(
                 database=s,
                 user=s,
-                psql_params=PostgresProvisioner.get_cli_params()
+                psql_args=PostgresProvisioner.get_cli_params()
             )
         self.scripts = self.services.values()
-        print self.scripts
 
     @staticmethod
     def get_cli_params():
