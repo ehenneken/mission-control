@@ -28,7 +28,7 @@ class TestDockerRunner(unittest.TestCase):
         print self.builder.client.containers(
             filters={'status': 'running'}
         )
-        running = [i['Name'] for i in self.builder.client.containers(
+        running = [i['Names'][0] for i in self.builder.client.containers(
             filters={'status': 'running'}
         )]
         self.assertNotIn(self.name, running)
