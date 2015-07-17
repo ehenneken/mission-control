@@ -162,7 +162,7 @@ class DockerRunner(object):
     the container, then tearing down the container
     """
 
-    def __init__(self, image, name, mem_limit="100m", **kwargs):
+    def __init__(self, image, name, **kwargs):
         """
         :param image: full name of the docker image to pull
         :param name: name of the container in `docker run --name`
@@ -172,7 +172,6 @@ class DockerRunner(object):
         """
         self.image = image
         self.name = name
-        self.mem_limit = mem_limit
         self.host_config = create_host_config(**kwargs)
 
         self.client = Client(version='auto')
@@ -196,7 +195,6 @@ class DockerRunner(object):
             image=self.image,
             host_config=self.host_config,
             name=self.name,
-            mem_limit=self.mem_limit,
         )
         self.logger.debug("Created container {}".format(self.container['Id']))
 
