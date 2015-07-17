@@ -1,10 +1,3 @@
-import sys
-import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../')
-)
-sys.path.append(PROJECT_HOME)
-import unittest
 from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.models import db, Commit, Build
@@ -115,7 +108,4 @@ class TestModels(TestCase):
         db.session.delete(b)
         db.session.commit()
         self.assertIsNone(Build.query.first())
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)
 

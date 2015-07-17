@@ -1,13 +1,6 @@
 """
 Test provisioners.py
 """
-
-import sys
-import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../'))
-sys.path.append(PROJECT_HOME)
-
 import unittest
 from flask import current_app
 from mc.provisioners import ScriptProvisioner, PostgresProvisioner
@@ -82,7 +75,3 @@ class TestPostgresProvisioner(unittest.TestCase):
             with self.assertRaises(KeyError):
                 del current_app.config['DEPENDENCIES']['POSTGRES']
                 PostgresProvisioner.get_cli_params()
-
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)

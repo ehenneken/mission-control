@@ -8,3 +8,5 @@ jinja2
 Celery
 mock
 python-dateutil
+nose
+psycopg2

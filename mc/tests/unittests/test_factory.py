@@ -1,13 +1,6 @@
 """
 Test factory (app.py)
 """
-
-import sys
-import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../'))
-sys.path.append(PROJECT_HOME)
-
 import unittest
 from mc import app
 from flask import Flask
@@ -35,6 +28,3 @@ class TestFactory(unittest.TestCase):
         e = app.create_jinja2()
         self.assertIsInstance(e, jinja2.Environment)
         self.assertIsInstance(e.loader, jinja2.FileSystemLoader)
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)

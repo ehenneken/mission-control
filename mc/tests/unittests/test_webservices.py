@@ -1,13 +1,6 @@
 """
 Test webservices
 """
-
-import sys
-import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../'))
-sys.path.append(PROJECT_HOME)
-import unittest
 from mc import app
 from flask.ext.testing import TestCase
 from flask import url_for
@@ -35,7 +28,3 @@ class TestEndpoints(TestCase):
         self.assertStatus(r, 405)  # Method not allowed
         r = self.client.post(url)
         self.assertStatus(r, 400)  # No signature given
-
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)

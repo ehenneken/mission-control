@@ -1,13 +1,7 @@
 """
 Test utilities
 """
-
-import sys
 import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../'))
-sys.path.append(PROJECT_HOME)
-
 import unittest
 import hmac
 import hashlib
@@ -168,6 +162,3 @@ class TestStaticMethodUtilities(TestCase):
         db.session.add(c2)
         db.session.commit()
         self.assertEqual(len(db.session.query(Commit).all()), 1)
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)

@@ -1,13 +1,6 @@
 """
 Test builders
 """
-
-import sys
-import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../'))
-sys.path.append(PROJECT_HOME)
-
 import unittest
 import io
 import mock
@@ -94,8 +87,7 @@ class TestDockerRunner(unittest.TestCase):
         """
         self.assertEqual(self.builder.container,  {'Id': 'mocked'})
         self.instance.create_container.assert_called_with(
-            mem_limit='100m',
-            host_config={'NetworkMode': 'host'},
+            host_config={'NetworkMode': 'host', "Memory": 104857600},
             name='redis',
             image='redis'
         )
@@ -118,9 +110,3 @@ class TestDockerRunner(unittest.TestCase):
         self.builder.teardown()
         self.instance.stop.assert_called_with(container='mocked')
         self.instance.remove_container.assert_called_with(container='mocked')
-
-
-
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)

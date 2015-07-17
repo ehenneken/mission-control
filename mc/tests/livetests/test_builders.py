@@ -1,17 +1,8 @@
 """
 Test builders
 """
-
-import sys
-import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../'))
-sys.path.append(PROJECT_HOME)
-
 import unittest
-import io
-from mc.builders import DockerImageBuilder, DockerRunner
-from mc.models import Commit
+from mc.builders import DockerRunner
 from werkzeug.security import gen_salt
 
 
@@ -34,7 +25,9 @@ class TestDockerRunner(unittest.TestCase):
         removed
         """
         self.builder.teardown()
-
+        print self.builder.client.containers(
+            filters={'status': 'running'}
+        )
         running = [i['Name'] for i in self.builder.client.containers(
             filters={'status': 'running'}
         )]
@@ -69,9 +62,3 @@ class TestDockerRunner(unittest.TestCase):
             filters={'status': 'running'}
         )]
         self.assertIn(self.builder.container['Id'], running)
-
-
-
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)

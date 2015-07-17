@@ -1,14 +1,6 @@
 """
 Test utilities
 """
-
-import sys
-import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../'))
-sys.path.append(PROJECT_HOME)
-
-import unittest
 from flask.ext.testing import TestCase
 from mock import patch
 from mc import app
@@ -71,7 +63,3 @@ class TestDockerBuildTask(TestCase):
         )
         self.assertTrue(build.built)
         self.assertTrue(build.pushed)
-
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)

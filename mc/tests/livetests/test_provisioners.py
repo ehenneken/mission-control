@@ -1,13 +1,6 @@
 """
 Test provisioners.py
 """
-
-import sys
-import os
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../../'))
-sys.path.append(PROJECT_HOME)
-
 from mc.provisioners import PostgresProvisioner
 from mc.builders import DockerRunner
 from mc.app import create_app
@@ -105,7 +98,3 @@ class TestPostgresProvisioner(unittest.TestCase):
         self.assertGreater(len(coreads), 0)
         self.assertGreater(len(clusters), 0)
         self.assertGreater(len(clustering), 0)
-
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)
