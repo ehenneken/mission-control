@@ -97,7 +97,7 @@ def load_config(app, basedir=os.path.dirname(__file__)):
     try:
         app.config.from_pyfile(os.path.join(basedir, 'local_config.py'))
     except IOError:
-        app.logger.warning("Could not load local_config.py")
+        app.logger.info("Could not load local_config.py")
 
 if __name__ == '__main__':
     app = create_app()
