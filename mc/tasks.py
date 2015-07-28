@@ -85,5 +85,10 @@ def build_docker(commit_id):
 
     build.built = builder.built
     build.pushed = builder.pushed
+    current_app.logger.info(
+        "Build {} status built:pushed {}/{}".format(
+            build.commit_hash, build.built, build.pushed
+        )
+    )
     db.session.add(build)
     db.session.commit()
