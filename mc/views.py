@@ -114,7 +114,9 @@ class GithubListener(Resource):
         # flask-extension to use in the future
         from mc.tasks import build_docker
         build_docker.delay(commit.id)
-
+        current_app.logger.info(
+            "received: {}@{}".format(commit.repository, commit.commit_hash)
+        )
         return {"received": "{}@{}".format(commit.repository, commit.commit_hash)}
 
 
