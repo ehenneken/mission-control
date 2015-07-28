@@ -1,5 +1,7 @@
 GITHUB_SIGNATURE_HEADER = 'X-Hub-Signature'
 GITHUB_SECRET = 'redacted'
+GITHUB_COMMIT_API = 'https://api.github.com/repos/adsabs/{repo}/git/commits/{hash}'
+
 WATCHED_REPOS = [
     'adsws',
     'solr-service',
