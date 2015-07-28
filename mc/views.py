@@ -103,7 +103,7 @@ class GithubListener(Resource):
         try:
             commit = GithubListener.parse_github_payload(request)
         except UnknownRepoError, e:
-            return {"Unknown repo": "{}".format(e)}, 202  # 202 Accepted
+            return {"Unknown repo": "{}".format(e)}, 400
         db.session.add(commit)
         db.session.commit()
 
