@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/adsabs/mission-control.svg?branch=master)](https://travis-ci.org/adsabs/mission-control)
+[![Coverage Status](https://coveralls.io/repos/adsabs/mission-control/badge.svg?branch=master&service=github)](https://coveralls.io/github/adsabs/mission-control?branch=master)
 
 # Mission-control
 
