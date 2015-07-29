@@ -16,7 +16,7 @@ from mc.models import db
 from mc.app import create_app
 from mc.tasks import build_docker
 from mc.models import Commit
-
+from sqlalchemy.orm.exc import NoResultFound
 
 app = create_app()
 migrate = Migrate(app, db)
@@ -51,13 +51,19 @@ class Build(Command):
             r = requests.get(url)
             r.raise_for_status()
             payload = r.json()
-            c = Commit(
-                commit_hash=commit_hash,
-                timestamp=parser.parse(payload['author']['date']),
-                author=payload['author']['name'],
-                repository=repo,
-                message=payload['message'],
-            )
+            try:
+                c = Commit.query.filter_by(
+                    commit_hash=commit_hash,
+                    repository=repo
+                ).one()
+            except NoResultFound:
+                c = Commit(
+                    commit_hash=commit_hash,
+                    timestamp=parser.parse(payload['author']['date']),
+                    author=payload['author']['name'],
+                    repository=repo,
+                    message=payload['message'],
+                )
             db.session.add(c)
             db.session.commit()
             build_docker.delay(c.id)

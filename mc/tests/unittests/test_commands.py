@@ -52,6 +52,11 @@ class TestBuild(TestCase):
             ).one()
             self.assertIsNotNone(c)
             mocked.delay.assert_called_once_with(c.id)
+            Build().run(repo, commit, app=self.app)
+            c2 = db.session.query(Commit).filter_by(
+                repository=repo, commit_hash=commit
+            ).one()
+            self.assertEqual(c.id, c2.id)
 
 
 
