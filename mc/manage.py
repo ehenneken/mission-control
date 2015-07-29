@@ -42,18 +42,18 @@ class Build(Command):
         Option('--commit', '-c', dest='commit_hash')
     )
 
-    def run(self, repo, commit_hash):
+    def run(self, repo, commit_hash, app=app):
         with app.app_context():
             url = current_app.config['GITHUB_COMMIT_API'].format(
                 repo=repo,
-                commit=commit_hash
+                hash=commit_hash
             )
             r = requests.get(url)
             r.raise_for_status()
             payload = r.json()
             c = Commit(
                 commit_hash=commit_hash,
-                timestamp=parser.parse(payload['head_commit']['timestamp']),
+                timestamp=parser.parse(payload['author']['date']),
                 author=payload['author']['name'],
                 repository=repo,
                 message=payload['message'],
