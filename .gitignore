@@ -4,4 +4,4 @@ local_config.py
 logs/
 *.sqlite
 *.idea*
-
+.coverage
