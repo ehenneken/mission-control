@@ -1,0 +1,38 @@
+{% extends "base.aws.template" %}
+{% block containers %}
+    [
+    {% for app in containers %}
+        {
+          "name": "{{ app.name }}",
+          "image": "{{ app.image }}",
+          "memory": {{ app.memory }},
+          "environment": [
+            {
+              "name": "SERVICE_NAME",
+              "value": "{{ app.name }}"
+            },
+            {
+              "name": "CONSUL_HOST",
+              "value": "consul.adsabs"
+            },
+            {
+              "name": "ENVIRONMENT",
+              "value": "{{ app.environment }}"
+            }
+          ],
+          "portMappings": [
+            {
+                "containerPort": 80
+            }
+          ],
+          "mountPoints": [
+            {
+                "sourceVolume": "tmp",
+                "containerPath": "/tmp"
+            }
+           ],
+          "essential": true
+        },
+    {% endfor %}
+    ]
+{% endblock %}

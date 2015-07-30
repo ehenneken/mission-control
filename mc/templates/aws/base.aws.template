@@ -1,10 +1,16 @@
 {
   "AWSEBDockerrunVersion": 2,
   {% block volumes %}
-  "volumes": [],
+  "volumes": [
+    {
+        "name": "tmp",
+        "host": {
+            "sourcePath": "/tmp"
+        }
+    }
+  ],
   {% endblock %}
-  "containerDefinitions": [
+  "containerDefinitions":
     {% block containers %}
     {% endblock %}
-
 }
