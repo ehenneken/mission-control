@@ -24,7 +24,7 @@ class TestDockerImageBuilder(unittest.TestCase):
         Test that the builder grabs the expected templates.
         This uses "live" templates.
         """
-        self.builder.get_templates()
+        self.builder.render_templates()
         self.assertGreater(len(self.builder.files), 0)
         self.assertEqual(self.builder.files[0]['name'], 'Dockerfile')
         self.assertIn(self.commit.commit_hash, self.builder.files[0]['content'])
@@ -34,7 +34,7 @@ class TestDockerImageBuilder(unittest.TestCase):
         Test that the docker context is created in-memory and that it has
         a non zero size. This uses "live" templates.
         """
-        self.builder.get_templates()
+        self.builder.render_templates()
         self.builder.create_docker_context()
         self.assertIsInstance(self.builder.tarfile, io.BytesIO)
         self.assertGreater(len(self.builder.tarfile.readlines()), 0)

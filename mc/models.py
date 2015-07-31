@@ -33,3 +33,21 @@ class Build(db.Model):
     timestamp = Column(DateTime)
     built = Column(Boolean)
     pushed = Column(Boolean)
+
+
+class DockerContainer(object):
+    """
+    Represents a docker container as defined by `Dockerrun.aws.json`.
+    This is not a database-backed model; it is in-app only
+    """
+
+    def __init__(self, build, environment, memory):
+        """
+        :param build:
+        :param environment:
+        :param memory:
+        """
+
+        self.build = build
+        self.environment = environment
+        self.memory = memory

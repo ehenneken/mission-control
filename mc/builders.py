@@ -9,6 +9,57 @@ import tarfile
 import io
 
 
+class ECSbuilder(object):
+    """
+    Responsible for building and creating an AWS-ecs deployment
+    """
+
+    def __init__(self, builds, environments, memory="100m", namespace='adsabs'):
+        """
+        :param builds: list of builds to include in the multi-container env
+        :type builds: list of mc.models.Build objects
+        :param environments: SERVICE_ENVIRONMENT tag to apply to each container
+        :type environments: string or list. If list, each member cooresponds to
+            the tag for the build of the same index
+        :param memory: memory to apply to eac h
+        """
+
+        if isinstance(environments, basestring):
+            environments = [environments]*len(builds)
+
+        assert len(environments) == len(builds)
+        self.environments = environments
+        self.builds = builds
+        self.namespace = namespace
+        self.templates = create_jinja2()
+
+
+    def render_template(self):
+        """
+        renders the `Dockerrun.aws.json` template
+        """
+        apps = []
+        for build, environment, memory in zip(self.builds, self.environments, self.memory):
+            apps.append(
+                {
+                    'name': build,
+                    'image': "{}/{}:{}".format(
+                        self.namespace,
+                        build.commit.repository,
+                        build.commit.commit_hash
+                    ),
+                    'environment': environment,
+                    'memory': memory,
+                }
+            )
+        t = self.templates.get_template('aws/containers.template')
+        t.render(apps=apps)
+
+
+
+
+
+
 class DockerImageBuilder(object):
     """
     Class responsible for finding the correct templates, rendering them,
@@ -34,12 +85,12 @@ class DockerImageBuilder(object):
         Shortcut method that calls all the methods in the correct order
         to build and push an image
         """
-        self.get_templates()
+        self.render_templates()
         self.create_docker_context()
         self.build()
         self.push()
 
-    def get_templates(self):
+    def render_templates(self):
         """
         Finds the templates using the app's create_jinja2 loader
         """
