@@ -9,55 +9,60 @@ import tarfile
 import io
 
 
-class ECSbuilder(object):
+class ECSBuilder(object):
     """
     Responsible for building and creating an AWS-ecs deployment
     """
 
-    def __init__(self, builds, environments, memory="100m", namespace='adsabs'):
+    class DockerContainer(object):
         """
-        :param builds: list of builds to include in the multi-container env
-        :type builds: list of mc.models.Build objects
-        :param environments: SERVICE_ENVIRONMENT tag to apply to each container
-        :type environments: string or list. If list, each member cooresponds to
-            the tag for the build of the same index
-        :param memory: memory to apply to eac h
+        Represents a docker container as defined in `Dockerrun.aws.json`.
         """
 
-        if isinstance(environments, basestring):
-            environments = [environments]*len(builds)
+        def __init__(self, build, environment, memory, namespace='adsabs'):
+            """
+            :param build: mc.models.Build
+            :param environment: string environment e.g. "staging"
+            :param memory: string memory e.g. "100m"
+            :param namespace: the docker image namespace
+            """
+            self.build = build
+            self.environment = environment
+            self.memory = memory
+            self.namespace = namespace
+            self.name = build.commit.repository
 
-        assert len(environments) == len(builds)
-        self.environments = environments
-        self.builds = builds
-        self.namespace = namespace
+        @property
+        def image(self):
+            """
+            getter for the string formatted docker image as hosted on dockerhub
+            """
+            return "{}/{}:{}".format(
+                self.namespace,
+                self.name,
+                self.build.commit.commit_hash
+            )
+
+    def __init__(self, containers):
+        """
+        :param containers: list of ECSBuilder.DockerContainer instances
+        """
+        self.containers = containers
         self.templates = create_jinja2()
-
 
     def render_template(self):
         """
         renders the `Dockerrun.aws.json` template
         """
-        apps = []
-        for build, environment, memory in zip(self.builds, self.environments, self.memory):
-            apps.append(
-                {
-                    'name': build,
-                    'image': "{}/{}:{}".format(
-                        self.namespace,
-                        build.commit.repository,
-                        build.commit.commit_hash
-                    ),
-                    'environment': environment,
-                    'memory': memory,
-                }
-            )
+        apps = [{
+            'name': container.name,
+            'image': container.image,
+            'environment': container.environment,
+            'memory': container.memory,
+        } for container in self.containers]
+
         t = self.templates.get_template('aws/containers.template')
-        t.render(apps=apps)
-
-
-
-
+        return t.render(apps=apps)
 
 
 class DockerImageBuilder(object):

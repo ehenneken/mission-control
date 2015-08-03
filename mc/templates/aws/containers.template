@@ -1,11 +1,11 @@
-{% extends "base.aws.template" %}
+{% extends "aws/base.aws.template" %}
 {% block containers %}
     [
-    {% for app in containers %}
+    {% for app in apps %}
         {
           "name": "{{ app.name }}",
           "image": "{{ app.image }}",
-          "memory": {{ app.memory }},
+          "memory": "{{ app.memory }}",
           "environment": [
             {
               "name": "SERVICE_NAME",

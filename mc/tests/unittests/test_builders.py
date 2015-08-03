@@ -4,8 +4,61 @@ Test builders
 import unittest
 import io
 import mock
-from mc.builders import DockerImageBuilder, DockerRunner
-from mc.models import Commit
+import jinja2
+import json
+from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder
+from mc.models import Commit, Build
+
+
+class TestECSbuilder(unittest.TestCase):
+    """
+    Test the ECSBuilder
+    """
+    def setUp(self):
+        self.commit = Commit(
+            commit_hash='master',
+            repository="adsws"
+        )
+        self.build = Build(commit=self.commit)
+        self.containers = [
+            ECSBuilder.DockerContainer(
+                self.build,
+                environment="staging",
+                memory="{}m".format(m)
+            ) for m in range(10, 50, 10)
+        ]
+        self.builder = ECSBuilder(self.containers)
+
+    def test_init(self):
+        """
+        Initialized ECSBuilder should have a template and containers attribute
+        of the appropriate types
+        """
+        self.assertIsInstance(
+            self.builder.containers[0],
+            ECSBuilder.DockerContainer
+        )
+        self.assertEqual(self.builder.containers, self.containers)
+        self.assertIsInstance(
+            self.builder.templates,
+            jinja2.environment.Environment
+        )
+
+    def test_render_template(self):
+        """
+        instance method render_template should return a json template based
+        on base.aws.template
+        """
+        t = self.builder.render_template()
+        self.assertIsInstance(t, basestring)
+        self.assertIn(self.commit.repository, t)
+        for container in self.containers:
+            self.assertIn(container.memory, t)
+        try:
+            self.assertIsInstance(json.loads(t), dict)
+        except ValueError:
+            print("Could not load json: {}".format(t))
+            raise
 
 
 class TestDockerImageBuilder(unittest.TestCase):
