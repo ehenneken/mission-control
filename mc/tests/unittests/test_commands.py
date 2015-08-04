@@ -5,10 +5,48 @@ test manage.py commands
 from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.tests.stubdata import github_commit_payload
-from mc.manage import BuildDockerImage
-from mc.models import db, Commit
+from mc.manage import BuildDockerImage, MakeDockerrunTemplate
+from mc.models import db, Commit, Build
 import mock
 import httpretty
+
+
+class TestMakeDockerrunTemplate(TestCase):
+    """
+    Test the manage.py render_dockerrun command
+    """
+
+    def create_app(self):
+        app = create_app()
+        app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///"
+        return app
+
+    def setUp(self):
+        db.create_all()
+        self.commit = Commit(
+            commit_hash='master',
+            repository="adsws"
+        )
+        self.build = Build(commit=self.commit)
+        db.session.add(self.commit)
+        db.session.add(self.build)
+        db.session.commit()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+
+    def test_run(self):
+        """
+        manage.py render_dockerrun -c repo:hash env mem return a rendered
+        Dockerrun.aws.json
+        """
+        containers = [
+            ["adsws:master", "staging", "100m"],
+            ["adsws:master", "production", "150m"],
+        ]
+        r = MakeDockerrunTemplate().run(containers=containers, app=self.app)
+        self.assertIn("adsws:master", r)
 
 
 class TestBuildDockerImage(TestCase):

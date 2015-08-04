@@ -12,10 +12,11 @@ import requests
 from flask.ext.script import Manager, Command, Option
 from flask.ext.migrate import Migrate, MigrateCommand
 from flask import current_app
-from mc.models import db
+from mc.models import db, Build, Commit
 from mc.app import create_app
 from mc.tasks import build_docker
 from mc.models import Commit
+from mc.builders import ECSBuilder
 from sqlalchemy.orm.exc import NoResultFound
 
 app = create_app()
@@ -72,9 +73,53 @@ class BuildDockerImage(Command):
             )
 
 
+class MakeDockerrunTemplate(Command):
+    """
+    Prints a `Dockerrun.aws.json` to stdout
+    Usage: manage.py render_dockerrun -c adsws:2cfd... staging 150m -c biblib:j03b... staging 300m
+    """
+
+    option_list = (
+        Option(
+            '--containers',
+            '-c',
+            dest='containers',
+            nargs=3,
+            action='append'
+        ),
+    )
+
+    def run(self, containers, app=app):
+        apps = []
+        with app.app_context():
+            for container in containers:
+                try:
+                    repo, commit_hash = container[0].split(':')
+                except ValueError:
+                    raise ValueError(
+                        '"{}" should look like repo:id'.format(container[0])
+                    )
+
+                try:
+                    build = Build.query.filter(
+                        Commit.repository == repo,
+                        Commit.commit_hash == commit_hash,
+                    ).one()
+                except NoResultFound:
+                    raise NoResultFound("No row found for {}/{}".format(
+                        repo, commit_hash)
+                    )
+                apps.append(ECSBuilder.DockerContainer(
+                    build, containers[1], container[2])
+                )
+            tmpl = ECSBuilder(apps).render_template()
+            print(tmpl)
+            return tmpl
+
 manager.add_command('db', MigrateCommand)
 manager.add_command('createdb', CreateDatabase())
 manager.add_command('dockerbuild', BuildDockerImage)
+manager.add_command('render_dockerrun', MakeDockerrunTemplate)
 
 
 if __name__ == '__main__':
