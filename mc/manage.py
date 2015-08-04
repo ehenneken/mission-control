@@ -33,7 +33,7 @@ class CreateDatabase(Command):
             db.create_all()
 
 
-class Build(Command):
+class BuildDockerImage(Command):
     """
     Generates a build based on a repo name and commit hash
     """
@@ -74,7 +74,7 @@ class Build(Command):
 
 manager.add_command('db', MigrateCommand)
 manager.add_command('createdb', CreateDatabase())
-manager.add_command('build', Build)
+manager.add_command('dockerbuild', BuildDockerImage)
 
 
 if __name__ == '__main__':

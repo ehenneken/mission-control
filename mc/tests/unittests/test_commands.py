@@ -5,13 +5,13 @@ test manage.py commands
 from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.tests.stubdata import github_commit_payload
-from mc.manage import Build
+from mc.manage import BuildDockerImage
 from mc.models import db, Commit
 import mock
 import httpretty
 
 
-class TestBuild(TestCase):
+class TestBuildDockerImage(TestCase):
     """
     Test the manage.py build command
     """
@@ -46,13 +46,13 @@ class TestBuild(TestCase):
         )
 
         with mock.patch('mc.manage.build_docker') as mocked:
-            Build().run(repo, commit, app=self.app)
+            BuildDockerImage().run(repo, commit, app=self.app)
             c = db.session.query(Commit).filter_by(
                 repository=repo, commit_hash=commit
             ).one()
             self.assertIsNotNone(c)
             mocked.delay.assert_called_once_with(c.id)
-            Build().run(repo, commit, app=self.app)
+            BuildDockerImage().run(repo, commit, app=self.app)
             c2 = db.session.query(Commit).filter_by(
                 repository=repo, commit_hash=commit
             ).one()
