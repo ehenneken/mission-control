@@ -12,7 +12,7 @@ import requests
 from flask.ext.script import Manager, Command, Option
 from flask.ext.migrate import Migrate, MigrateCommand
 from flask import current_app
-from mc.models import db, Build, Commit
+from mc.models import db, Build
 from mc.app import create_app
 from mc.tasks import build_docker
 from mc.models import Commit

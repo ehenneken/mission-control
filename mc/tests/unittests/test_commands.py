@@ -9,6 +9,7 @@ from mc.manage import BuildDockerImage, MakeDockerrunTemplate
 from mc.models import db, Commit, Build
 import mock
 import httpretty
+from sqlalchemy.orm.exc import NoResultFound
 
 
 class TestMakeDockerrunTemplate(TestCase):
@@ -59,6 +60,12 @@ class TestMakeDockerrunTemplate(TestCase):
         self.assertIn("150m", r)
         self.assertNotIn("_hash_", r)
         self.assertNotIn("_repo_", r)
+        containers = [
+            ["adsws:doesnt_exist", "staging", "100m"],
+        ]
+        with self.assertRaises(NoResultFound):
+            MakeDockerrunTemplate().run(containers=containers, app=self.app)
+
 
 
 class TestBuildDockerImage(TestCase):
