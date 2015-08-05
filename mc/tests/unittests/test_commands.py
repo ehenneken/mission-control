@@ -28,8 +28,16 @@ class TestMakeDockerrunTemplate(TestCase):
             repository="adsws"
         )
         self.build = Build(commit=self.commit)
+
+        # Add some unrelated commit/builds to ensure that these are *not*
+        # rendered
+        c = Commit(commit_hash="_hash_", repository="_repo_")
+        b = Build(commit=c)
+
         db.session.add(self.commit)
         db.session.add(self.build)
+        db.session.add(c)
+        db.session.add(b)
         db.session.commit()
 
     def tearDown(self):
@@ -47,6 +55,10 @@ class TestMakeDockerrunTemplate(TestCase):
         ]
         r = MakeDockerrunTemplate().run(containers=containers, app=self.app)
         self.assertIn("adsws:master", r)
+        self.assertIn("100m", r)
+        self.assertIn("150m", r)
+        self.assertNotIn("_hash_", r)
+        self.assertNotIn("_repo_", r)
 
 
 class TestBuildDockerImage(TestCase):

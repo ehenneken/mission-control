@@ -99,7 +99,7 @@ class MakeDockerrunTemplate(Command):
                     raise ValueError(
                         '"{}" should look like repo:id'.format(container[0])
                     )
-                build = Build.query.filter(
+                build = Build.query.join(Commit).filter(
                     Commit.repository == repo,
                     Commit.commit_hash == commit_hash,
                 ).first()
