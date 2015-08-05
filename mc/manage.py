@@ -99,13 +99,11 @@ class MakeDockerrunTemplate(Command):
                     raise ValueError(
                         '"{}" should look like repo:id'.format(container[0])
                     )
-
-                try:
-                    build = Build.query.filter(
-                        Commit.repository == repo,
-                        Commit.commit_hash == commit_hash,
-                    ).one()
-                except NoResultFound:
+                build = Build.query.filter(
+                    Commit.repository == repo,
+                    Commit.commit_hash == commit_hash,
+                ).first()
+                if build is None:
                     raise NoResultFound("No row found for {}/{}".format(
                         repo, commit_hash)
                     )
