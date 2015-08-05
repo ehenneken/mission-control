@@ -108,7 +108,7 @@ class MakeDockerrunTemplate(Command):
                         repo, commit_hash)
                     )
                 apps.append(ECSBuilder.DockerContainer(
-                    build, containers[1], container[2])
+                    build, container[1], container[2])
                 )
             tmpl = ECSBuilder(apps).render_template()
             print(tmpl)
