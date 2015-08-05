@@ -9,6 +9,5 @@ Celery
 mock
 python-dateutil
 nose
-psycopg2
 httpretty
 coveralls
