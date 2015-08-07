@@ -51,17 +51,17 @@ class TestMakeDockerrunTemplate(TestCase):
         Dockerrun.aws.json
         """
         containers = [
-            ["adsws:master", "staging", "100m"],
-            ["adsws:master", "production", "150m"],
+            ["adsws:master", "staging", 100],
+            ["adsws:master", "production", 150],
         ]
         r = MakeDockerrunTemplate().run(containers=containers, app=self.app)
         self.assertIn("adsws:master", r)
-        self.assertIn("100m", r)
-        self.assertIn("150m", r)
+        self.assertIn("100", r)
+        self.assertIn("150", r)
         self.assertNotIn("_hash_", r)
         self.assertNotIn("_repo_", r)
         containers = [
-            ["adsws:doesnt_exist", "staging", "100m"],
+            ["adsws:doesnt_exist", "staging", 100],
         ]
         with self.assertRaises(NoResultFound):
             MakeDockerrunTemplate().run(containers=containers, app=self.app)

@@ -1,5 +1,5 @@
 {
-  "AWSEBDockerrunVersion": 2,
+  "family": "{{ family }}",
   {% block volumes %}
   "volumes": [
     {

@@ -23,7 +23,7 @@ class ECSBuilder(object):
             """
             :param build: mc.models.Build
             :param environment: string environment e.g. "staging"
-            :param memory: string memory e.g. "100m"
+            :param memory: int memory in MB (100)
             :param namespace: the docker image namespace
             """
             self.build = build
@@ -43,12 +43,14 @@ class ECSBuilder(object):
                 self.build.commit.commit_hash
             )
 
-    def __init__(self, containers):
+    def __init__(self, containers, family):
         """
         :param containers: list of ECSBuilder.DockerContainer instances
+        :param family: ECS-required "family" field
         """
         self.containers = containers
         self.templates = create_jinja2()
+        self.family = family
 
     def render_template(self):
         """
@@ -62,7 +64,7 @@ class ECSBuilder(object):
         } for container in self.containers]
 
         t = self.templates.get_template('aws/containers.template')
-        return t.render(apps=apps)
+        return t.render(apps=apps, family=self.family)
 
 
 class DockerImageBuilder(object):

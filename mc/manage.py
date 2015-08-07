@@ -75,7 +75,7 @@ class BuildDockerImage(Command):
 class MakeDockerrunTemplate(Command):
     """
     Prints a `Dockerrun.aws.json` to stdout
-    Usage: manage.py render_dockerrun -c adsws:2cfd... staging 150m -c biblib:j03b... staging 300m
+    Usage: manage.py render_dockerrun -c adsws:2cfd... staging 100 -c biblib:j03b... staging 300
     """
 
     option_list = (
@@ -109,7 +109,7 @@ class MakeDockerrunTemplate(Command):
                 apps.append(ECSBuilder.DockerContainer(
                     build, container[1], container[2])
                 )
-            tmpl = ECSBuilder(apps).render_template()
+            tmpl = ECSBuilder(apps, family="_editme_").render_template()
             print(tmpl)
             return tmpl
 

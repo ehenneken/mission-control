@@ -24,10 +24,10 @@ class TestECSbuilder(unittest.TestCase):
             ECSBuilder.DockerContainer(
                 self.build,
                 environment="staging",
-                memory="{}m".format(m)
+                memory=m
             ) for m in range(10, 50, 10)
         ]
-        self.builder = ECSBuilder(self.containers)
+        self.builder = ECSBuilder(self.containers, family="unittest")
 
     def test_init(self):
         """
@@ -53,7 +53,7 @@ class TestECSbuilder(unittest.TestCase):
         self.assertIsInstance(t, basestring)
         self.assertIn(self.commit.repository, t)
         for container in self.containers:
-            self.assertIn(container.memory, t)
+            self.assertIn("{}".format(container.memory), t)
         try:
             self.assertIsInstance(json.loads(t), dict)
         except ValueError:

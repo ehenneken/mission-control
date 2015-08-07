@@ -5,7 +5,7 @@
         {
           "name": "{{ app.name }}",
           "image": "{{ app.image }}",
-          "memory": "{{ app.memory }}",
+          "memory": {{ app.memory }},
           "environment": [
             {
               "name": "SERVICE_NAME",
