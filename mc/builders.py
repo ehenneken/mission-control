@@ -128,6 +128,7 @@ class DockerImageBuilder(object):
         self.files.append({
             'name': 'gunicorn.sh',
             'content': t.render(),
+            'mode': 0555,
         })
 
         # cron/, etc/ iif there exists a `self.repo` directory
@@ -154,6 +155,8 @@ class DockerImageBuilder(object):
             for f in self.files:
                 tarinfo = tarfile.TarInfo(f['name'])
                 tarinfo.size = len(f['content'])
+                if 'mode' in f:
+                    tarinfo.mode = f['mode']
                 tar.addfile(tarinfo, io.BytesIO(f['content'].encode('utf-8')))
         self.tarfile.seek(0)  # Reset from EOF
 

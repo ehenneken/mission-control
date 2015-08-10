@@ -6,6 +6,7 @@ import io
 import mock
 import jinja2
 import json
+import tarfile
 from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder
 from mc.models import Commit, Build
 
@@ -90,7 +91,12 @@ class TestDockerImageBuilder(unittest.TestCase):
         self.builder.render_templates()
         self.builder.create_docker_context()
         self.assertIsInstance(self.builder.tarfile, io.BytesIO)
-        self.assertGreater(len(self.builder.tarfile.readlines()), 0)
+        with tarfile.open(fileobj=self.builder.tarfile) as tf:
+            f = tf.getmember("gunicorn.sh")
+            self.assertEqual(f.mode, 0555)
+            f = tf.getmember("Dockerfile")
+            self.assertEqual(f.mode, 420)
+
 
     @mock.patch('mc.builders.Client')
     def test_docker_build(self, mocked):
