@@ -51,6 +51,9 @@ class TestRegisterTaskDefinition(TestCase):
             volumes=[],
         )
 
+        register_task_revision('{"valid": "json"')
+        client.register_task_definition.assert_called_with(valid="json")
+
 
 class TestDockerBuildTask(TestCase):
     """

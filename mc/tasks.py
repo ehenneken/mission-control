@@ -19,7 +19,9 @@ def register_task_revision(ecsbuild):
     Calls the registerTaskDefinition aws-api endpoint to update a task
     definition based on the ECSBuild.
     This must be called within an app context.
-    :param ecsbuild: mc.builders.ECSBuilder instance
+    :param ecsbuild: the dockerrun.aws.json, represented as a ECSBuild or a
+        JSON-formatted string
+    :type ecsbuild: mc.builders.ECSBuild or basestring
     """
     session = Session(
         aws_access_key_id=current_app.config.get('AWS_ACCESS_KEY'),
@@ -27,7 +29,11 @@ def register_task_revision(ecsbuild):
         region_name=current_app.config.get('AWS_REGION')
     )
     client = session.client('ecs')
-    client.register_task_definition(**json.loads(ecsbuild.render_template()))
+    if isinstance(ecsbuild, basestring):
+        payload = ecsbuild
+    else:
+        payload = ecsbuild.render_template()
+    client.register_task_definition(**json.loads(payload))
 
 
 @celery.task()
