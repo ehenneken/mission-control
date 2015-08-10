@@ -5,11 +5,27 @@ test manage.py commands
 from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.tests.stubdata import github_commit_payload
-from mc.manage import BuildDockerImage, MakeDockerrunTemplate
+from mc.manage import BuildDockerImage, MakeDockerrunTemplate, ECSDeploy
 from mc.models import db, Commit, Build
 import mock
 import httpretty
 from sqlalchemy.orm.exc import NoResultFound
+
+
+class TestECSDeploy(TestCase):
+    """
+    Test the manage.py deploy command
+    """
+    def create_app(self):
+        return create_app()
+
+    @mock.patch('mc.manage.register_task_revision')
+    def test_run(self, mocked):
+        """
+        manage.py -t "<json>" should be passed to tasks.register_task_revision
+        """
+        ECSDeploy().run(task_definition='{"valid": "json"}', app=self.app)
+        mocked.assert_called_with('{"valid": "json"}')
 
 
 class TestMakeDockerrunTemplate(TestCase):

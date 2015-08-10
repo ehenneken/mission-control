@@ -14,7 +14,7 @@ from flask.ext.migrate import Migrate, MigrateCommand
 from flask import current_app
 from mc.models import db, Build, Commit
 from mc.app import create_app
-from mc.tasks import build_docker
+from mc.tasks import build_docker, register_task_revision
 from mc.builders import ECSBuilder
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -113,6 +113,22 @@ class MakeDockerrunTemplate(Command):
             print(tmpl)
             return tmpl
 
+
+class ECSDeploy(Command):
+    """
+    Calls tasks.register_task_definition (TODO: and update_service) to update
+    an AWS deploy
+    """
+
+    option_list = (
+        Option('--task', '-t', dest='task_definition')
+    )
+
+    def run(self, task_definition, app=app):
+        with app.app_context():
+            register_task_revision(task_definition)
+
+manager.add_command('deploy', ECSDeploy)
 manager.add_command('db', MigrateCommand)
 manager.add_command('createdb', CreateDatabase())
 manager.add_command('dockerbuild', BuildDockerImage)
