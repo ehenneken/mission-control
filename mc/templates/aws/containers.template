@@ -12,6 +12,10 @@
               "value": "{{ app.name }}"
             },
             {
+              "name": "SERVICE",
+              "value": "{{ app.name }}"
+            },
+            {
               "name": "CONSUL_HOST",
               "value": "consul.adsabs"
             },
