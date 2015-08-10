@@ -9,5 +9,6 @@ Celery
 mock
 python-dateutil
 nose
+boto3
 httpretty
 coveralls

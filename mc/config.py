@@ -1,6 +1,9 @@
 GITHUB_SIGNATURE_HEADER = 'X-Hub-Signature'
 GITHUB_SECRET = 'redacted'
 GITHUB_COMMIT_API = 'https://api.github.com/repos/adsabs/{repo}/git/commits/{hash}'
+AWS_REGION = 'us-east-1'
+AWS_ACCESS_KEY = 'redacted'
+AWS_SECRET_KEY = 'redacted'
 
 WATCHED_REPOS = [
     'adsws',

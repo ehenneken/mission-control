@@ -7,7 +7,7 @@ import os
 from mc.models import db
 from celery import Celery
 import jinja2
-from flask import Flask
+from flask import Flask, current_app
 from flask.ext.restful import Api
 from mc.views import GithubListener
 
@@ -61,7 +61,7 @@ def create_celery(app=None):
     class ContextTask(TaskBase):
         abstract = True
         def __call__(self, *args, **kwargs):
-            with app.app_context():
+            with current_app.app_context():
                 return TaskBase.__call__(self, *args, **kwargs)
     celery.Task = ContextTask
     return celery

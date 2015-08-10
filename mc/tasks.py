@@ -1,16 +1,33 @@
 """
 Tasks that should live outside of the request/response cycle
 """
-
 import datetime
 from flask import current_app
-from mc.app import create_celery
+from boto3.session import Session
+import json
 
+from mc.app import create_celery
 from mc.models import db, Build, Commit
 from mc.builders import DockerImageBuilder, DockerRunner
 from mc.provisioners import PostgresProvisioner
 
 celery = create_celery()
+
+@celery.task()
+def register_task_revision(ecsbuild):
+    """
+    Calls the registerTaskDefinition aws-api endpoint to update a task
+    definition based on the ECSBuild.
+    This must be called within an app context.
+    :param ecsbuild: mc.builders.ECSBuilder instance
+    """
+    session = Session(
+        aws_access_key_id=current_app.config.get('AWS_ACCESS_KEY'),
+        aws_secret_access_key=current_app.config.get('AWS_SECRET_KEY'),
+        region_name=current_app.config.get('AWS_REGION')
+    )
+    client = session.client('ecs')
+    client.register_task_definition(**json.loads(ecsbuild.render_template()))
 
 
 @celery.task()
