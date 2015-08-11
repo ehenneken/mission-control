@@ -90,7 +90,6 @@ class MakeDockerrunTemplate(Command):
             '--family',
             '-f',
             dest='family',
-            nargs=1,
         )
     )
 
