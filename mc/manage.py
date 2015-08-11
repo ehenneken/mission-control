@@ -121,7 +121,7 @@ class ECSDeploy(Command):
     """
 
     option_list = (
-        Option('--task', '-t', dest='task_definition')
+        Option('--task', '-t', dest='task_definition'),
     )
 
     def run(self, task_definition, app=app):
