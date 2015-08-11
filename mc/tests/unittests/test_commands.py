@@ -10,6 +10,7 @@ from mc.models import db, Commit, Build
 import mock
 import httpretty
 from sqlalchemy.orm.exc import NoResultFound
+import json
 
 
 class TestECSDeploy(TestCase):
@@ -70,17 +71,24 @@ class TestMakeDockerrunTemplate(TestCase):
             ["adsws:master", "staging", 100],
             ["adsws:master", "production", 150],
         ]
-        r = MakeDockerrunTemplate().run(containers=containers, app=self.app)
-        self.assertIn("adsws:master", r)
-        self.assertIn("100", r)
-        self.assertIn("150", r)
+        r = MakeDockerrunTemplate().run(
+            containers=containers, app=self.app, family="unittest-family"
+        )
         self.assertNotIn("_hash_", r)
         self.assertNotIn("_repo_", r)
+        r = json.loads(r)
+        self.assertEqual("unittest-family", r['family'])
+        self.assertEqual("adsabs/adsws:master", r['containerDefinitions'][0]["image"])
+        self.assertEqual("adsabs/adsws:master", r['containerDefinitions'][1]["image"])
+        self.assertEqual(100, r['containerDefinitions'][0]["memory"])
+        self.assertEqual(150, r['containerDefinitions'][1]["memory"])
         containers = [
             ["adsws:doesnt_exist", "staging", 100],
         ]
         with self.assertRaises(NoResultFound):
-            MakeDockerrunTemplate().run(containers=containers, app=self.app)
+            MakeDockerrunTemplate().run(
+                containers=containers, app=self.app, family="unittest-family"
+            )
 
 
 

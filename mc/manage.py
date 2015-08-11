@@ -86,9 +86,15 @@ class MakeDockerrunTemplate(Command):
             nargs=3,
             action='append'
         ),
+        Option(
+            '--family',
+            '-f',
+            dest='family',
+            nargs=1,
+        )
     )
 
-    def run(self, containers, app=app):
+    def run(self, containers, family, app=app):
         apps = []
         with app.app_context():
             for container in containers:
@@ -109,7 +115,7 @@ class MakeDockerrunTemplate(Command):
                 apps.append(ECSBuilder.DockerContainer(
                     build, container[1], container[2])
                 )
-            tmpl = ECSBuilder(apps, family="_editme_").render_template()
+            tmpl = ECSBuilder(apps, family=family).render_template()
             print(tmpl)
             return tmpl
 
