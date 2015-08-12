@@ -61,7 +61,17 @@ def create_celery(app=None):
     class ContextTask(TaskBase):
         abstract = True
         def __call__(self, *args, **kwargs):
-            with current_app.app_context():
+
+            # If we're already in an app_context, use that. Otherwise, use
+            # the default app.app_context. This is necessary for providing
+            # custom applications for tests
+            def get_ctx():  # pragma: no cover
+                try:
+                    ctx = current_app.app_context()
+                except RuntimeError:
+                    ctx = app.app_context()
+                return ctx
+            with get_ctx():
                 return TaskBase.__call__(self, *args, **kwargs)
     celery.Task = ContextTask
     return celery
