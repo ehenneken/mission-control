@@ -16,6 +16,7 @@ WATCHED_REPOS = [
     'vis-services',
     'biblib-service',
     'orcid-service',
+    'myads',
 ]
 
 # Local dependencies for the testing environment
