@@ -5,7 +5,7 @@ from flask.ext.testing import TestCase
 from mock import patch
 from mc import app
 from mc.models import db, Commit, Build
-from mc.tasks import register_task_revision, build_docker
+from mc.tasks import register_task_revision, build_docker, update_service
 import datetime
 
 
@@ -14,14 +14,9 @@ class TestRegisterTaskDefinition(TestCase):
     Test the register_task_definition task
     """
     def create_app(self):
-        app_ = app.create_app()
-        app_.config['MC_LOGGING'] = {}
-        app_.config['AWS_REGION'] = "unittest-region"
-        app_.config['AWS_ACCESS_KEY'] = "unittest-access"
-        app_.config['AWS_SECRET_KEY'] = "unittest-secret"
-        return app_
+        return app.create_app()
 
-    @patch('mc.tasks.Session')
+    @patch('mc.tasks.get_boto_session')
     def test_register_task_definition(self, Session):
         """
         the register_task_definition task should pass a dockerrun.aws.json
@@ -39,20 +34,40 @@ class TestRegisterTaskDefinition(TestCase):
             }'''
             register_task_revision(ecsbuild)
 
-        Session.assert_called_with(
-            aws_access_key_id="unittest-access",
-            aws_secret_access_key="unittest-secret",
-            region_name="unittest-region",
-        )
         session.client.assert_called_with('ecs')
         client.register_task_definition.assert_called_with(
             family="unittest-family",
             containerDefinitions=[],
             volumes=[],
         )
-
         register_task_revision('{"valid": "json"}')
         client.register_task_definition.assert_called_with(valid="json")
+
+
+class TestUpdateService(TestCase):
+    """
+    Test the update service task
+    """
+    def create_app(self):
+        return app.create_app()
+
+    @patch('mc.tasks.get_boto_session')
+    def test_update_service(self, Session):
+        """
+        the update_service task should pass call the boto3 task after
+        establishing a session
+        """
+        session = Session.return_value
+        client = session.client.return_value
+        kwargs = dict(
+            cluster="unittest-cluster",
+            service="unittest-service",
+            desiredCount=5,
+            taskDefinition='{"valid": "json"}',
+        )
+        update_service(**kwargs)
+        session.client.assert_called_with('ecs')
+        client.update_service.assert_called_with(**kwargs)
 
 
 class TestDockerBuildTask(TestCase):

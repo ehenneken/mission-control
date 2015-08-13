@@ -3,12 +3,12 @@ Tasks that should live outside of the request/response cycle
 """
 import datetime
 from flask import current_app
-from boto3.session import Session
 import json
 
 from mc.app import create_celery
 from mc.models import db, Build, Commit
 from mc.builders import DockerImageBuilder, DockerRunner
+from mc.utils import get_boto_session
 from mc.provisioners import PostgresProvisioner
 
 celery = create_celery()
@@ -23,17 +23,31 @@ def register_task_revision(ecsbuild):
         JSON-formatted string
     :type ecsbuild: mc.builders.ECSBuild or basestring
     """
-    session = Session(
-        aws_access_key_id=current_app.config.get('AWS_ACCESS_KEY'),
-        aws_secret_access_key=current_app.config.get('AWS_SECRET_KEY'),
-        region_name=current_app.config.get('AWS_REGION')
-    )
-    client = session.client('ecs')
+    client = get_boto_session().client('ecs')
     if isinstance(ecsbuild, basestring):
         payload = ecsbuild
     else:
         payload = ecsbuild.render_template()
     client.register_task_definition(**json.loads(payload))
+
+
+@celery.task()
+def update_service(cluster, service, desiredCount, taskDefinition):
+    """
+    Thin wrapper around boto3 ecs.update_service;
+    # http://boto3.readthedocs.org/en/latest/reference/services/ecs.html#ECS.Client.update_service
+    :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that your service is running on. If you do not specify a cluster, the default cluster is assumed.
+    :param service: The name of the service that you want to update.
+    :param desiredCount: The number of instantiations of the task that you would like to place and keep running in your service.
+    :param taskDefinition: The family and revision (family:revision ) or full Amazon Resource Name (ARN) of the task definition that you want to run in your service. If a revision is not specified, the latest ACTIVE revision is used. If you modify the task definition with UpdateService , Amazon ECS spawns a task with the new version of the task definition and then stops an old task after the new version is running.
+    """
+    client = get_boto_session().client('ecs')
+    client.update_service(
+        cluster=cluster,
+        service=service,
+        desiredCount=desiredCount,
+        taskDefinition=taskDefinition
+    )
 
 
 @celery.task()

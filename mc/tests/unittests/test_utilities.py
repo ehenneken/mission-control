@@ -13,7 +13,8 @@ from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError
 from mc.tests.stubdata.github_webhook_payload import payload
 from mc.models import db, Commit
-from mc.utils import ChangeDir
+from mc.utils import ChangeDir, get_boto_session
+import mock
 
 from flask.ext.testing import TestCase
 
@@ -48,6 +49,26 @@ class TestUtilities(unittest.TestCase):
         with ChangeDir('~/'):
             self.assertEqual(os.path.abspath(os.curdir), os.path.expanduser('~'))
         self.assertEqual(os.path.abspath(os.curdir), current)
+
+    @mock.patch('mc.utils.Session')
+    def test_get_boto_session(self, Session):
+        """
+        get_boto_session should call Session with the current app's config
+        """
+        instance = Session.return_value
+        app_ = app.create_app()
+        app_.config['AWS_REGION'] = "unittest-region"
+        app_.config['AWS_ACCESS_KEY'] = "unittest-access"
+        app_.config['AWS_SECRET_KEY'] = "unittest-secret"
+        with self.assertRaises(RuntimeError):  # app-context must be available
+            get_boto_session()
+        with app_.app_context():
+            get_boto_session()
+        Session.assert_called_with(
+            aws_access_key_id="unittest-access",
+            aws_secret_access_key="unittest-secret",
+            region_name="unittest-region",
+        )
 
 
 class TestStaticMethodUtilities(TestCase):
