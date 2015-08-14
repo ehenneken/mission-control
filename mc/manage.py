@@ -14,7 +14,7 @@ from flask.ext.migrate import Migrate, MigrateCommand
 from flask import current_app
 from mc.models import db, Build, Commit
 from mc.app import create_app
-from mc.tasks import build_docker, register_task_revision
+from mc.tasks import build_docker, register_task_revision, update_service
 from mc.builders import ECSBuilder
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -119,10 +119,10 @@ class MakeDockerrunTemplate(Command):
             return tmpl
 
 
-class ECSDeploy(Command):
+class RegisterTaskRevision(Command):
     """
-    Calls tasks.register_task_definition (TODO: and update_service) to update
-    an AWS deploy
+    Calls tasks.register_task_definition to update
+    an ECS task revision
     """
 
     option_list = (
@@ -133,7 +133,30 @@ class ECSDeploy(Command):
         with app.app_context():
             register_task_revision(task_definition)
 
-manager.add_command('deploy', ECSDeploy)
+
+class UpdateService(Command):
+    """
+    Calls tasks.update_service to update an ECS service
+    """
+
+    option_list = (
+        Option('--cluster', '-c', dest='cluster'),
+        Option('--service', '-s', dest='service'),
+        Option('--desiredCount', dest='desiredCount', type=int),
+        Option('--taskDefinition', '-t', dest='taskDefinition'),
+    )
+
+    def run(self, cluster, service, desiredCount, taskDefinition, app=app):
+        with app.app_context():
+            update_service(cluster=cluster,
+                           service=service,
+                           desiredCount=desiredCount,
+                           taskDefinition=taskDefinition,
+            )
+
+
+manager.add_command('update_service', UpdateService)
+manager.add_command('register_task_revision', RegisterTaskRevision)
 manager.add_command('db', MigrateCommand)
 manager.add_command('createdb', CreateDatabase())
 manager.add_command('dockerbuild', BuildDockerImage)

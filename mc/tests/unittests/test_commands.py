@@ -5,7 +5,8 @@ test manage.py commands
 from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.tests.stubdata import github_commit_payload
-from mc.manage import BuildDockerImage, MakeDockerrunTemplate, ECSDeploy
+from mc.manage import BuildDockerImage, MakeDockerrunTemplate, \
+    RegisterTaskRevision, UpdateService
 from mc.models import db, Commit, Build
 import mock
 import httpretty
@@ -13,9 +14,9 @@ from sqlalchemy.orm.exc import NoResultFound
 import json
 
 
-class TestECSDeploy(TestCase):
+class TestRegisterTaskRevision(TestCase):
     """
-    Test the manage.py deploy command
+    Test the manage.py register_task_revision command
     """
     def create_app(self):
         return create_app()
@@ -25,8 +26,32 @@ class TestECSDeploy(TestCase):
         """
         manage.py -t "<json>" should be passed to tasks.register_task_revision
         """
-        ECSDeploy().run(task_definition='{"valid": "json"}', app=self.app)
+        RegisterTaskRevision().run(
+            task_definition='{"valid": "json"}', app=self.app
+        )
         mocked.assert_called_with('{"valid": "json"}')
+
+
+class TestUpdateService(TestCase):
+    """
+    Test the manage.py update_service command
+    """
+    def create_app(self):
+        return create_app()
+
+    @mock.patch('mc.manage.update_service')
+    def test_run(self, mocked):
+        """
+        manage.py update_service <args> should be passed to tasks.update_service
+        """
+        kwargs = dict(
+            cluster="unittest-cluster",
+            service="unittest-service",
+            desiredCount=1,
+            taskDefinition="unittest-taskdefinition",
+        )
+        UpdateService().run(app=self.app, **kwargs)
+        mocked.assert_called_with(**kwargs)
 
 
 class TestMakeDockerrunTemplate(TestCase):
