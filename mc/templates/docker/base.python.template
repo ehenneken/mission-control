@@ -3,7 +3,7 @@ FROM phusion/baseimage
 RUN apt-get update
 {% block packages %}
 RUN apt-get install -y git python-pip python-dev libpq-dev
-RUN pip install pip gunicorn psycopg2
+RUN pip install --upgrade pip gunicorn psycopg2
 {% endblock %}
 
 WORKDIR /app
