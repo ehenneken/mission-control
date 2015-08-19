@@ -19,18 +19,22 @@ class ECSBuilder(object):
         Represents a docker container as defined in `Dockerrun.aws.json`.
         """
 
-        def __init__(self, build, environment, memory, namespace='adsabs'):
+        def __init__(self, build, environment, memory, namespace='adsabs',
+                     portmappings=None):
             """
             :param build: mc.models.Build
             :param environment: string environment e.g. "staging"
             :param memory: int memory in MB (100)
             :param namespace: the docker image namespace
+            :param portmappings: {"containerPort":80, "hostPort":8080}
+            :type portmappings: dict or None
             """
             self.build = build
             self.environment = environment
             self.memory = memory
             self.namespace = namespace
             self.name = build.commit.repository
+            self.portmappings = portmappings
 
         @property
         def image(self):
@@ -61,6 +65,7 @@ class ECSBuilder(object):
             'image': container.image,
             'environment': container.environment,
             'memory': container.memory,
+            'portMappings': container.portmappings
         } for container in self.containers]
 
         t = self.templates.get_template('aws/containers.template')

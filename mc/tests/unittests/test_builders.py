@@ -25,7 +25,10 @@ class TestECSbuilder(unittest.TestCase):
             ECSBuilder.DockerContainer(
                 self.build,
                 environment="staging",
-                memory=m
+                memory=m,
+                portmappings=[{
+                    "hostPort": 8080,
+                    "containerPort": 80}] if m == 10 else None
             ) for m in range(10, 50, 10)
         ]
         self.builder = ECSBuilder(self.containers, family="unittest")
@@ -52,14 +55,21 @@ class TestECSbuilder(unittest.TestCase):
         """
         t = self.builder.render_template()
         self.assertIsInstance(t, basestring)
-        self.assertIn(self.commit.repository, t)
-        for container in self.containers:
-            self.assertIn("{}".format(container.memory), t)
         try:
-            self.assertIsInstance(json.loads(t), dict)
+            j = json.loads(t)
         except ValueError:
             print("Could not load json: {}".format(t))
             raise
+        self.assertIn(self.commit.repository, t)
+        for container in self.containers:
+            self.assertIn("{}".format(container.memory), t)
+            if container.portmappings is not None:
+                self.assertEqual(
+                    j['containerDefinitions'][self.containers.index(container)]['portMappings'],
+                    container.portmappings,
+                )
+
+
 
 
 class TestDockerImageBuilder(unittest.TestCase):

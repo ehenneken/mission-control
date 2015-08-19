@@ -29,9 +29,19 @@
             }
           ],
           "portMappings": [
+           {% if app.portMappings %}
+           {% for mapping in app.portMappings %}
+           {
+                {% for key, value in mapping.iteritems() %}
+                "{{ key }}": {{ value }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+           }{% if not loop.last %},{% endif %}
+          {% endfor %}
+          {% else %}
             {
                 "containerPort": 80
             }
+          {% endif %}
           ],
           "mountPoints": [
             {

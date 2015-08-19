@@ -165,3 +165,6 @@ manager.add_command('render_dockerrun', MakeDockerrunTemplate)
 
 if __name__ == '__main__':
     manager.run()
+
+
+{"http://internal-awseb-e-e-AWSEBLoa-RF23OF42MIWX-1172470867.us-east-1.elb.amazonaws.com/": "/vis", "adsws.graphics_service.service.app": "/graphics", "adsws.solr_service.solr.app": "/search", "adsws.citation_helper_service.service.app": "/citation_helper", "adsws.export_service.app": "/export", "adsws.recommender_service.service.app": "/recommender", "http://internal-awseb-e-3-AWSEBLoa-1HKSNBA55D1F4-138720268.us-east-1.elb.amazonaws.com": "/metrics", "adsws.orcid_service.app": "/orcid", "adsws.biblib.app": "/biblib","http://internal-awseb-e-v-AWSEBLoa-O4JKGN25WF1H-2064776679.us-east-1.elb.amazonaws.com": "/vault"}
