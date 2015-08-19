@@ -71,6 +71,9 @@ class GithubListener(Resource):
         payload = request.get_json()
         repo = payload['repository']['name']
         commit_hash = payload['head_commit']['id']
+        tag = payload['ref'].replace('refs/tags/', '') \
+            if 'tags' in payload['ref'] else None
+
         if repo not in current_app.config.get('WATCHED_REPOS'):
             raise UnknownRepoError("{}".format(repo))
 
@@ -82,6 +85,7 @@ class GithubListener(Resource):
         except NoResultFound:
             return Commit(
                 commit_hash=commit_hash,
+                tag=tag,
                 timestamp=parser.parse(payload['head_commit']['timestamp']),
                 author=payload['head_commit']['author']['username'],
                 repository=repo,
@@ -115,9 +119,12 @@ class GithubListener(Resource):
         from mc.tasks import build_docker
         build_docker.delay(commit.id)
         current_app.logger.info(
-            "received: {}@{}".format(commit.repository, commit.commit_hash)
+            "received: {}@{}, tag:{}"
+            .format(commit.repository, commit.commit_hash, commit.tag)
         )
-        return {"received": "{}@{}".format(commit.repository, commit.commit_hash)}
+        return {"received": "{}@{}, tag:{}".format(
+            commit.repository, commit.commit_hash, commit.tag
+        )}
 
 
 

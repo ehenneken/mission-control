@@ -11,7 +11,7 @@ from dateutil.tz import tzoffset, tzlocal
 from mc import app
 from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError
-from mc.tests.stubdata.github_webhook_payload import payload
+from mc.tests.stubdata.github_webhook_payload import payload, payload_tag
 from mc.models import db, Commit
 from mc.utils import ChangeDir, get_boto_session
 import mock
@@ -151,6 +151,10 @@ class TestStaticMethodUtilities(TestCase):
             c.commit_hash,
             'bcdf7771aa10d78d865c61e5336145e335e30427'
         )
+        self.assertEqual(
+            c.tag,
+            None
+        )
         self.assertEqual(c.author, 'vsudilov')
         self.assertEqual(c.repository, 'adsws')
         self.assertEqual(
@@ -166,6 +170,65 @@ class TestStaticMethodUtilities(TestCase):
         # models.Commit.timestamp value
         r.data = r.data.replace(
             "2015-06-03T12:26:57Z",
+            "2015-06-09T18:19:39+02:00"
+        )
+        c = GithubListener.parse_github_payload(r)
+        self.assertEqual(
+            c.timestamp,
+            datetime.datetime(2015, 6, 9, 18, 19, 39, tzinfo=tzoffset(None, 7200))
+        )
+
+        # Re-sending a previously saved commit payload should return that
+        # previously saved commit
+        db.session.add(c)
+        db.session.commit()
+        self.assertEqual(len(db.session.query(Commit).all()), 1)
+        c2 = GithubListener.parse_github_payload(r)
+        db.session.add(c2)
+        db.session.commit()
+        self.assertEqual(len(db.session.query(Commit).all()), 1)
+
+    def test_parse_github_payload_tag(self):
+        """
+        Tests that a db.Commit object is created when passed a create event
+        example github webhook payload
+        """
+
+        # Set up fake payload
+        r = FakeRequest()
+        r.data = payload_tag
+
+        # Unknown repos should raise UnknownRepoError
+        with self.assertRaises(UnknownRepoError):
+            GithubListener.parse_github_payload(r)
+
+        # Modify the data such that the payload refers to a known repo,
+        # assert that the returned models.Commit contains the expected data
+        r.data = r.data.replace('"name": "governor"', '"name": "adsws"')
+        c = GithubListener.parse_github_payload(r)
+        self.assertEqual(
+            c.commit_hash,
+            '2a047ead58a3a87b46388ac67fe08c944c3230e0'
+        )
+        self.assertEqual(
+            c.tag,
+            'v1.0.0'
+        )
+        self.assertEqual(c.author, 'adsabs')
+        self.assertEqual(c.repository, 'adsws')
+        self.assertEqual(
+            c.message,
+            "First commit."
+        )
+        self.assertEqual(
+            c.timestamp,
+            datetime.datetime(2015, 8, 12, 16, 18, 57, tzinfo=tzoffset(None, -4*60*60))
+        )
+
+        # Assert that a different timeformat returns the expected
+        # models.Commit.timestamp value
+        r.data = r.data.replace(
+            "2015-08-12T16:18:57-04:00",
             "2015-06-09T18:19:39+02:00"
         )
         c = GithubListener.parse_github_payload(r)

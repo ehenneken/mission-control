@@ -164,5 +164,32 @@ class TestBuildDockerImage(TestCase):
             ).one()
             self.assertEqual(c.id, c2.id)
 
+    @httpretty.activate
+    def test_run_tag(self):
+        """
+        manage.py build <repo> <tag> should create a new Commit and
+        build_docker.delay() should be called
+        """
+        repo, tag = "unittest-repo", "unittest-tag"
 
+        httpretty.register_uri(
+            httpretty.GET,
+            self.app.config['GITHUB_COMMIT_API'].format(
+                repo=repo, hash=tag
+            ),
+            body=github_commit_payload.payload,
+            content_type="application/json"
+        )
 
+        with mock.patch('mc.manage.build_docker') as mocked:
+            BuildDockerImage().run(repo, tag, app=self.app)
+            c = db.session.query(Commit).filter_by(
+                repository=repo, commit_hash=tag
+            ).one()
+            self.assertIsNotNone(c)
+            mocked.delay.assert_called_once_with(c.id)
+            BuildDockerImage().run(repo, tag, app=self.app)
+            c2 = db.session.query(Commit).filter_by(
+                repository=repo, commit_hash=tag
+            ).one()
+            self.assertEqual(c.id, c2.id)
