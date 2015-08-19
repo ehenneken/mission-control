@@ -112,7 +112,13 @@ class MakeDockerrunTemplate(Command):
                         repo, commit_hash)
                     )
                 apps.append(ECSBuilder.DockerContainer(
-                    build=build, environment=container[1], memory=container[2])
+                    build=build,
+                    environment=container[1],
+                    memory=container[2],
+                    portmappings=[
+                        {"hostPort": 8080, "containerPort": 80}
+                    ] if repo == "adsws" else None,
+                    )
                 )
             tmpl = ECSBuilder(apps, family=family).render_template()
             print(tmpl)
