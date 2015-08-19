@@ -75,7 +75,7 @@ class BuildDockerImage(Command):
 class MakeDockerrunTemplate(Command):
     """
     Prints a `Dockerrun.aws.json` to stdout
-    Usage: manage.py render_dockerrun -c adsws:2cfd... staging 100 -c biblib:j03b... staging 300
+    Usage: manage.py print_task_def -c adsws:2cfd... staging 100 -c biblib:j03b... staging 300
     """
 
     option_list = (
@@ -112,7 +112,7 @@ class MakeDockerrunTemplate(Command):
                         repo, commit_hash)
                     )
                 apps.append(ECSBuilder.DockerContainer(
-                    build, container[1], container[2])
+                    build=build, environment=container[1], memory=container[2])
                 )
             tmpl = ECSBuilder(apps, family=family).render_template()
             print(tmpl)
@@ -156,15 +156,12 @@ class UpdateService(Command):
 
 
 manager.add_command('update_service', UpdateService)
-manager.add_command('register_task_revision', RegisterTaskRevision)
+manager.add_command('register_task_def', RegisterTaskRevision)
 manager.add_command('db', MigrateCommand)
 manager.add_command('createdb', CreateDatabase())
 manager.add_command('dockerbuild', BuildDockerImage)
-manager.add_command('render_dockerrun', MakeDockerrunTemplate)
+manager.add_command('print_task_def', MakeDockerrunTemplate)
 
 
 if __name__ == '__main__':
     manager.run()
-
-
-{"http://internal-awseb-e-e-AWSEBLoa-RF23OF42MIWX-1172470867.us-east-1.elb.amazonaws.com/": "/vis", "adsws.graphics_service.service.app": "/graphics", "adsws.solr_service.solr.app": "/search", "adsws.citation_helper_service.service.app": "/citation_helper", "adsws.export_service.app": "/export", "adsws.recommender_service.service.app": "/recommender", "http://internal-awseb-e-3-AWSEBLoa-1HKSNBA55D1F4-138720268.us-east-1.elb.amazonaws.com": "/metrics", "adsws.orcid_service.app": "/orcid", "adsws.biblib.app": "/biblib","http://internal-awseb-e-v-AWSEBLoa-O4JKGN25WF1H-2064776679.us-east-1.elb.amazonaws.com": "/vault"}
