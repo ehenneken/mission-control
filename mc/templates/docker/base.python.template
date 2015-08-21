@@ -17,6 +17,7 @@ RUN pip install -r requirements.txt
 COPY gunicorn.conf.py /app/gunicorn.conf.py
 COPY gunicorn.sh /etc/service/gunicorn/run
 
+RUN rm /etc/nginx/sites-enabled/*
 COPY app.nginx.conf /etc/nginx/sites-enabled/
 COPY nginx.sh /etc/service/nginx/run
 
