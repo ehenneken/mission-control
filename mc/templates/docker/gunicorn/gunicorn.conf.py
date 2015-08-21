@@ -3,9 +3,8 @@ import os
 APP_NAME = os.environ.get('SERVICE', 'generic_service')
 LOG_DIR = '/tmp'
 
-bind = "0.0.0.0:80"
+bind = "unix:/app/gunicorn.sock"
 workers = 6
-worker_class = "eventlet"
 max_requests = 200
 max_requests_jitter = 15
 preload_app = True

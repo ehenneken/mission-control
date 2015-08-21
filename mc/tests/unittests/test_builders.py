@@ -100,10 +100,12 @@ class TestDockerImageBuilder(unittest.TestCase):
         self.builder.create_docker_context()
         self.assertIsInstance(self.builder.tarfile, io.BytesIO)
         with tarfile.open(fileobj=self.builder.tarfile) as tf:
-            f = tf.getmember("gunicorn.sh")
-            self.assertEqual(f.mode, 0555)
-            f = tf.getmember("Dockerfile")
-            self.assertEqual(f.mode, 420)
+            for fn in ["Dockerfile", "gunicorn.conf.py", "app.nginx.conf"]:
+                f = tf.getmember(fn)
+                self.assertEqual(f.mode, 420)
+            for fn in ["gunicorn.sh", "nginx.sh"]:
+                f = tf.getmember(fn)
+                self.assertEqual(f.mode, 0555)
 
 
     @mock.patch('mc.builders.Client')

@@ -2,8 +2,8 @@ FROM phusion/baseimage
 
 RUN apt-get update
 {% block packages %}
-RUN apt-get install -y git python-pip python-dev libpq-dev
-RUN pip install --upgrade pip gunicorn psycopg2 requests eventlet
+RUN apt-get install -y git python-pip python-dev libpq-dev nginx
+RUN pip install --upgrade pip gunicorn psycopg2 requests
 {% endblock %}
 
 WORKDIR /app
@@ -16,6 +16,9 @@ RUN pip install -r requirements.txt
 
 COPY gunicorn.conf.py /app/gunicorn.conf.py
 COPY gunicorn.sh /etc/service/gunicorn/run
+
+COPY app.nginx.conf /etc/nginx/sites-enabled/
+COPY nginx.sh /etc/service/nginx/run
 
 EXPOSE 80
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*

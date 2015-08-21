@@ -136,6 +136,24 @@ class DockerImageBuilder(object):
             'mode': 0555,
         })
 
+        # nginx
+        t = self.templates.get_template(
+            'docker/nginx/app.nginx.conf'
+        )
+        self.files.append({
+            'name': 'app.nginx.conf',
+            'content': t.render(),
+        })
+
+        t = self.templates.get_template(
+            'docker/nginx/nginx.sh'
+        )
+        self.files.append({
+            'name': 'nginx.sh',
+            'content': t.render(),
+            'mode': 0555,
+        })
+
         # cron/, etc/ iif there exists a `self.repo` directory
         def _filter(p):
             return ("cron/" in p or "etc/" in p) and (self.repo in p) and \
