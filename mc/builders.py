@@ -216,7 +216,8 @@ class DockerImageBuilder(object):
                 current_app.logger.debug(line)
             except RuntimeError:  # Outside of application context
                 print line
-        if "pushing tag" not in line.lower():
+
+        if not ("pushing tag" in line.lower() or "digest: sha256" in line.lower()):
             raise BuildError("Failed to push {}: {}".format(self.tag, line))
 
         self.pushed = True

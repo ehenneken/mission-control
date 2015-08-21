@@ -9,7 +9,7 @@ import json
 import tarfile
 from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder
 from mc.models import Commit, Build
-
+from mc.exceptions import BuildError
 
 class TestECSbuilder(unittest.TestCase):
     """
@@ -70,8 +70,6 @@ class TestECSbuilder(unittest.TestCase):
                 )
 
 
-
-
 class TestDockerImageBuilder(unittest.TestCase):
     """
     Test the DockerImageBuilder
@@ -127,8 +125,15 @@ class TestDockerImageBuilder(unittest.TestCase):
         """
         instance = mocked.return_value
         instance.push.return_value = ['pushing tag']
+
+        self.builder.pushed = False
+        instance.push.return_value = ['DIGEST: sha256']
         self.builder.push()
         self.assertTrue(self.builder.pushed)
+
+        instance.push.return_value = ['error']
+        with self.assertRaises(BuildError):
+            self.builder.push()
 
 
 class TestDockerRunner(unittest.TestCase):
