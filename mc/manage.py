@@ -39,11 +39,44 @@ class BuildDockerImage(Command):
     """
     option_list = (
         Option('--repo', '-r', dest='repo'),
-        Option('--commit', '-c', dest='commit_hash')
+        Option('--commit', '-c', dest='commit_hash'),
+        Option('--tag', '-t', dest='tag')
     )
 
-    def run(self, repo, commit_hash, app=app):
+    def run(self, repo, commit_hash=None, tag=None, app=app):
         with app.app_context():
+
+            if tag:
+                # Using the tag, obtain the sha for the relevant tag
+                url = current_app.config['GITHUB_TAG_FIND_API'].format(
+                    repo=repo,
+                    tag=tag
+                )
+                r = requests.get(url)
+                r.raise_for_status()
+                payload_find_tag = r.json()
+                try:
+                    tag_commit_hash = payload_find_tag['object']['sha']
+                except KeyError:
+                    raise KeyError(
+                        'tag supplied does not exist: {0}'.format(tag)
+                    )
+
+                # Obtain the commit hash for this tag
+                url = current_app.config['GITHUB_TAG_GET_API'].format(
+                    repo=repo,
+                    hash=tag_commit_hash
+                )
+                r = requests.get(url)
+                r.raise_for_status()
+                payload_get_tag = r.json()
+                commit_hash = payload_get_tag['object']['sha']
+
+                current_app.logger.info(
+                    'user supplied a tag: {0}, sha: {1}'
+                    .format(tag, commit_hash)
+                )
+
             url = current_app.config['GITHUB_COMMIT_API'].format(
                 repo=repo,
                 hash=commit_hash
@@ -63,6 +96,7 @@ class BuildDockerImage(Command):
                     author=payload['author']['name'],
                     repository=repo,
                     message=payload['message'],
+                    tag=tag if tag else None
                 )
             db.session.add(c)
             db.session.commit()
