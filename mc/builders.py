@@ -19,18 +19,22 @@ class ECSBuilder(object):
         Represents a docker container as defined in `Dockerrun.aws.json`.
         """
 
-        def __init__(self, build, environment, memory, namespace='adsabs'):
+        def __init__(self, build, environment, memory, namespace='adsabs',
+                     portmappings=None):
             """
             :param build: mc.models.Build
             :param environment: string environment e.g. "staging"
             :param memory: int memory in MB (100)
             :param namespace: the docker image namespace
+            :param portmappings: {"containerPort":80, "hostPort":8080}
+            :type portmappings: dict or None
             """
             self.build = build
             self.environment = environment
             self.memory = memory
             self.namespace = namespace
             self.name = build.commit.repository
+            self.portmappings = portmappings
 
         @property
         def image(self):
@@ -61,6 +65,7 @@ class ECSBuilder(object):
             'image': container.image,
             'environment': container.environment,
             'memory': container.memory,
+            'portMappings': container.portmappings
         } for container in self.containers]
 
         t = self.templates.get_template('aws/containers.template')
@@ -127,6 +132,24 @@ class DockerImageBuilder(object):
         )
         self.files.append({
             'name': 'gunicorn.sh',
+            'content': t.render(),
+            'mode': 0555,
+        })
+
+        # nginx
+        t = self.templates.get_template(
+            'docker/nginx/app.nginx.conf'
+        )
+        self.files.append({
+            'name': 'app.nginx.conf',
+            'content': t.render(),
+        })
+
+        t = self.templates.get_template(
+            'docker/nginx/nginx.sh'
+        )
+        self.files.append({
+            'name': 'nginx.sh',
             'content': t.render(),
             'mode': 0555,
         })
@@ -211,7 +234,8 @@ class DockerImageBuilder(object):
                 current_app.logger.debug(line)
             except RuntimeError:  # Outside of application context
                 print line
-        if "pushing tag" not in line.lower():
+
+        if not ("pushing tag" in line.lower() or "digest: sha256" in line.lower()):
             raise BuildError("Failed to push {}: {}".format(self.tag, line))
 
         self.pushed = True

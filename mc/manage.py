@@ -75,7 +75,7 @@ class BuildDockerImage(Command):
 class MakeDockerrunTemplate(Command):
     """
     Prints a `Dockerrun.aws.json` to stdout
-    Usage: manage.py render_dockerrun -c adsws:2cfd... staging 100 -c biblib:j03b... staging 300
+    Usage: manage.py print_task_def -c adsws:2cfd... staging 100 -c biblib:j03b... staging 300
     """
 
     option_list = (
@@ -112,7 +112,13 @@ class MakeDockerrunTemplate(Command):
                         repo, commit_hash)
                     )
                 apps.append(ECSBuilder.DockerContainer(
-                    build, container[1], container[2])
+                    build=build,
+                    environment=container[1],
+                    memory=container[2],
+                    portmappings=[
+                        {"hostPort": 8080, "containerPort": 80}
+                    ] if repo == "adsws" else None,
+                    )
                 )
             tmpl = ECSBuilder(apps, family=family).render_template()
             print(tmpl)
@@ -156,11 +162,11 @@ class UpdateService(Command):
 
 
 manager.add_command('update_service', UpdateService)
-manager.add_command('register_task_revision', RegisterTaskRevision)
+manager.add_command('register_task_def', RegisterTaskRevision)
 manager.add_command('db', MigrateCommand)
 manager.add_command('createdb', CreateDatabase())
 manager.add_command('dockerbuild', BuildDockerImage)
-manager.add_command('render_dockerrun', MakeDockerrunTemplate)
+manager.add_command('print_task_def', MakeDockerrunTemplate)
 
 
 if __name__ == '__main__':
