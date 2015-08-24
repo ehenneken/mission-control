@@ -1,13 +1,12 @@
-import multiprocessing
 import os
  
 APP_NAME = os.environ.get('SERVICE', 'generic_service')
 LOG_DIR = '/tmp'
 
-bind = "0.0.0.0:80"
-#bind = "unix:/tmp/gunicorn-{}.sock".format(APP_NAME)
-workers = min(10, min(5, multiprocessing.cpu_count() * 2 + 1))
+bind = "unix:/app/gunicorn.sock"
+workers = 6
 max_requests = 200
+max_requests_jitter = 15
 preload_app = True
 chdir = os.path.dirname(__file__)
 daemon = False

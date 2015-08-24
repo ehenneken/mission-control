@@ -9,7 +9,7 @@ import json
 import tarfile
 from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder
 from mc.models import Commit, Build
-
+from mc.exceptions import BuildError
 
 class TestECSbuilder(unittest.TestCase):
     """
@@ -25,7 +25,10 @@ class TestECSbuilder(unittest.TestCase):
             ECSBuilder.DockerContainer(
                 self.build,
                 environment="staging",
-                memory=m
+                memory=m,
+                portmappings=[{
+                    "hostPort": 8080,
+                    "containerPort": 80}] if m == 10 else None
             ) for m in range(10, 50, 10)
         ]
         self.builder = ECSBuilder(self.containers, family="unittest")
@@ -52,14 +55,19 @@ class TestECSbuilder(unittest.TestCase):
         """
         t = self.builder.render_template()
         self.assertIsInstance(t, basestring)
-        self.assertIn(self.commit.repository, t)
-        for container in self.containers:
-            self.assertIn("{}".format(container.memory), t)
         try:
-            self.assertIsInstance(json.loads(t), dict)
+            j = json.loads(t)
         except ValueError:
             print("Could not load json: {}".format(t))
             raise
+        self.assertIn(self.commit.repository, t)
+        for container in self.containers:
+            self.assertIn("{}".format(container.memory), t)
+            if container.portmappings is not None:
+                self.assertEqual(
+                    j['containerDefinitions'][self.containers.index(container)]['portMappings'],
+                    container.portmappings,
+                )
 
 
 class TestDockerImageBuilder(unittest.TestCase):
@@ -92,10 +100,12 @@ class TestDockerImageBuilder(unittest.TestCase):
         self.builder.create_docker_context()
         self.assertIsInstance(self.builder.tarfile, io.BytesIO)
         with tarfile.open(fileobj=self.builder.tarfile) as tf:
-            f = tf.getmember("gunicorn.sh")
-            self.assertEqual(f.mode, 0555)
-            f = tf.getmember("Dockerfile")
-            self.assertEqual(f.mode, 420)
+            for fn in ["Dockerfile", "gunicorn.conf.py", "app.nginx.conf"]:
+                f = tf.getmember(fn)
+                self.assertEqual(f.mode, 420)
+            for fn in ["gunicorn.sh", "nginx.sh"]:
+                f = tf.getmember(fn)
+                self.assertEqual(f.mode, 0555)
 
 
     @mock.patch('mc.builders.Client')
@@ -117,8 +127,15 @@ class TestDockerImageBuilder(unittest.TestCase):
         """
         instance = mocked.return_value
         instance.push.return_value = ['pushing tag']
+
+        self.builder.pushed = False
+        instance.push.return_value = ['DIGEST: sha256']
         self.builder.push()
         self.assertTrue(self.builder.pushed)
+
+        instance.push.return_value = ['error']
+        with self.assertRaises(BuildError):
+            self.builder.push()
 
 
 class TestDockerRunner(unittest.TestCase):
