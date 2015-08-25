@@ -20,3 +20,22 @@ A Vagrantfile and puppet manifest are available for development within a virtual
   * [VirtualBox](https://www.virtualbox.org)
 
 To load and enter the VM: `vagrant up && vagrant ssh`
+
+# Manage.py deploy workflow:
+
+  1. The image should have been built and pushed to dockerhub. If the docker image is for whatever reason inaccessible, the deployment (last step) will fail.
+  
+  1. Print the JSON task definition:
+      
+      `json=$(python mc/manage.py print_task_def --containers metrics_service:a07fc3bf3e1307fff7ac31f7aba85a8576395128 staging 300 --family metrics_service)`
+
+      (300: Megabytes to allocate to the container. This is the criterion ECS uses to allocate services amongst the cluster, so it should be well-understood)
+      
+  1. Register the JSON task definition the AWS-ECS:
+
+      `python mc/manage.py register_task_def --task "$json"`
+
+  1. Update the running ECS service with the newly updated task definition:
+
+      `python mc/manage.py update_service --cluster staging --service metrics_service --desiredCount 1 --taskDefinition metrics_service`
+      
