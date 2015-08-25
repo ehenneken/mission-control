@@ -2,7 +2,7 @@ import multiprocessing,os
  
 APP_NAME = 'mission-control'
 LOG_DIR = 'logs'
-PORT = 8081
+PORT = 9000
 
 if not os.path.isdir(LOG_DIR):
   os.makedirs(LOG_DIR)
