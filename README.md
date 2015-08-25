@@ -23,7 +23,9 @@ To load and enter the VM: `vagrant up && vagrant ssh`
 
 # Manage.py deploy workflow:
 
-  1. The image should have been built and pushed to dockerhub. If the docker image is for whatever reason inaccessible, the deployment (last step) will fail.
+  1. The image should have been built and pushed to dockerhub. If the docker image is for whatever reason inaccessible, the deployment (last step) will fail. One can manually build commits via
+
+      `python mc/manage.py dockerbuild --repo $REPO --commit $HASH`
   
   1. Print the JSON task definition:
       
