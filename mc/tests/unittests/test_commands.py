@@ -137,7 +137,7 @@ class TestBuildDockerImage(TestCase):
     @httpretty.activate
     def test_run(self):
         """
-        manage.py build <repo> <commit> should create a new Commit and
+        manage.py build -r <repo> -c <commit> should create a new Commit and
         build_docker.delay() should be called
         """
         repo, commit = "unittest-repo", "unittest-hash"
@@ -164,5 +164,70 @@ class TestBuildDockerImage(TestCase):
             ).one()
             self.assertEqual(c.id, c2.id)
 
+    @httpretty.activate
+    def test_run_tag(self):
+        """
+        manage.py build -r <repo> -t <tag> should create a new Commit and
+        build_docker.delay() should be called
+        """
+        repo, tag, commit = 'unittest-repo', 'unittest-tag', 'unittest-commit'
 
+        tag, tag_commit, no_tag = 'unittest-tag', 'unnitest-tag-commit', \
+                                  'no-tag'
 
+        httpretty.register_uri(
+            httpretty.GET,
+            self.app.config['GITHUB_TAG_FIND_API'].format(
+                repo=repo, tag=tag
+            ),
+            body=github_commit_payload.payload_tag,
+            content_type='application/json'
+        )
+
+        httpretty.register_uri(
+            httpretty.GET,
+            self.app.config['GITHUB_TAG_GET_API'].format(
+                repo=repo, hash=tag_commit
+            ),
+            body=github_commit_payload.payload_get_tag,
+            content_type='application/json'
+        )
+
+        httpretty.register_uri(
+            httpretty.GET,
+            self.app.config['GITHUB_TAG_FIND_API'].format(
+                repo=repo, tag=no_tag
+            ),
+            body=github_commit_payload.payload_tag_fail,
+            content_type='application/json'
+        )
+
+        httpretty.register_uri(
+            httpretty.GET,
+            self.app.config['GITHUB_COMMIT_API'].format(
+                repo=repo, hash=commit
+            ),
+            body=github_commit_payload.payload,
+            content_type='application/json'
+        )
+
+        with mock.patch('mc.manage.build_docker') as mocked:
+            BuildDockerImage().run(repo, tag=tag, app=self.app)
+            c = db.session.query(Commit).filter_by(
+                repository=repo, tag=tag
+            ).one()
+            self.assertIsNotNone(c)
+            mocked.delay.assert_called_once_with(c.id)
+            BuildDockerImage().run(repo, tag=tag, app=self.app)
+            c2 = db.session.query(Commit).filter_by(
+                repository=repo, tag=tag
+            ).one()
+            self.assertEqual(c.id, c2.id)
+
+            c3 = db.session.query(Commit).filter_by(
+                repository=repo, commit_hash=commit
+            ).one()
+            self.assertEqual(c.id, c3.id)
+
+            with self.assertRaises(KeyError):
+                BuildDockerImage().run(repo, tag=no_tag, app=self.app)

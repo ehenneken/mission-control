@@ -30,3 +30,35 @@ payload='''{
     }
   ]
 }'''
+
+payload_tag = '''{
+  "ref": "refs/tags/v1.0.0",
+  "url": "https://api.github.com/repos/adsabs/adsws/git/refs/tags/v1.0.0",
+  "object": {
+    "sha": "unnitest-tag-commit",
+    "type": "tag",
+    "url": "https://api.github.com/repos/adsabs/adsws/git/tags/d0e1b1f82ddd1f2c42afbe15f624b120db66fbb4"
+  }
+}'''
+
+payload_get_tag = '''{
+  "sha": "unnitest-tag-commit",
+  "url": "https://api.github.com/repos/adsabs/governor/git/tags/unnitest-tag-commit",
+  "tagger": {
+    "name": "adsabs",
+    "email": "adshelp@cfa.harvard.edu",
+    "date": "2015-08-19T14:52:49Z"
+  },
+  "object": {
+    "sha": "unittest-commit",
+    "type": "commit",
+    "url": "https://api.github.com/repos/adsabs/governor/git/commits/2a047ead58a3a87b46388ac67fe08c944c3230e0"
+  },
+  "tag": "v1.0.0",
+  "message": "First version release 1.0.0"
+}'''
+
+payload_tag_fail = '''{
+  "message": "Not Found",
+  "documentation_url": "https://developer.github.com/v3"
+}'''

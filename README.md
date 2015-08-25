@@ -6,8 +6,13 @@
 Build and CI platform for adsabs.
   * Builds docker images based on templates. Triggered by github webhooks
   * Pushes successfully build images to dockerhub with the commit hash as tag
-  
+ 
 # Development
+
+You can run unit tests in the following way:
+```bash
+nosetests mc/tests/unittests
+```
 
 A Vagrantfile and puppet manifest are available for development within a virtual machine. To use the vagrant VM defined here you will need to install *Vagrant* and *VirtualBox*. 
 
