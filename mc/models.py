@@ -14,7 +14,7 @@ class Commit(db.Model):
     """
     id = Column(Integer, primary_key=True)
     commit_hash = Column(String, unique=True)
-    tag = Column(String, unique=True)
+    tag = Column(String)
     message = Column(String)
     timestamp = Column(DateTime)
     author = Column(String)
