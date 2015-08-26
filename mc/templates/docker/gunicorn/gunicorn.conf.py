@@ -13,5 +13,4 @@ daemon = False
 debug = False
 errorlog = '{}/{}.error.log'.format(LOG_DIR, APP_NAME)
 accesslog = '{}/{}.access.log'.format(LOG_DIR, APP_NAME)
-pidfile = '{}/{}.pid'.format(LOG_DIR, APP_NAME)
 loglevel = "info"
