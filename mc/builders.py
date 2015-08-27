@@ -85,7 +85,7 @@ class DockerImageBuilder(object):
         self.tag = "{}/{}:{}".format(
             namespace,
             self.repo,
-            self.commit.commit_hash
+            self.commit.tag if self.commit.tag else self.commit.commit_hash
         )
         self.files = []
         self.tarfile = None
