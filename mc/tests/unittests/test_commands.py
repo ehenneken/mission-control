@@ -68,7 +68,7 @@ class TestMakeDockerrunTemplate(TestCase):
         db.create_all()
         self.commit = Commit(
             commit_hash='master',
-            repository="adsws",
+            repository="adsws"
         )
         self.build = Build(commit=self.commit)
 
