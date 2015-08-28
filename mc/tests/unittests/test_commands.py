@@ -68,7 +68,7 @@ class TestMakeDockerrunTemplate(TestCase):
         db.create_all()
         self.commit = Commit(
             commit_hash='master',
-            repository="adsws"
+            repository="adsws",
         )
         self.build = Build(commit=self.commit)
 
@@ -115,6 +115,20 @@ class TestMakeDockerrunTemplate(TestCase):
                 containers=containers, app=self.app, family="unittest-family"
             )
 
+        # Tags
+        self.commit.tag = 'tag'
+        db.session.add(self.commit)
+        db.session.commit()
+        containers = [
+            ["adsws:tag", "staging", 100]
+        ]
+        r = MakeDockerrunTemplate().run(
+            containers=containers, app=self.app, family="unittest-family"
+        )
+        self.assertNotIn("_hash_", r)
+        self.assertNotIn("_repo_", r)
+        r = json.loads(r)
+        self.assertEqual("adsabs/adsws:tag", r['containerDefinitions'][0]["image"])
 
 
 class TestBuildDockerImage(TestCase):
