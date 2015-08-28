@@ -44,7 +44,8 @@ class ECSBuilder(object):
             return "{}/{}:{}".format(
                 self.namespace,
                 self.name,
-                self.build.commit.commit_hash
+                self.build.commit.tag if self.build.commit.tag
+                else self.build.commit.commit_hash
             )
 
     def __init__(self, containers, family):

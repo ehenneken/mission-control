@@ -16,6 +16,7 @@ from mc.models import db, Build, Commit
 from mc.app import create_app
 from mc.tasks import build_docker, register_task_revision, update_service
 from mc.builders import ECSBuilder
+from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
 
 app = create_app()
@@ -143,7 +144,7 @@ class MakeDockerrunTemplate(Command):
                     )
                 build = Build.query.join(Commit).filter(
                     Commit.repository == repo,
-                    Commit.commit_hash == commit_hash,
+                    or_(Commit.commit_hash == commit_hash, Commit.tag == commit_hash),
                 ).first()
                 if build is None:
                     raise NoResultFound("No row found for {}/{}".format(
