@@ -212,12 +212,20 @@ class TestBuildDockerImage(TestCase):
         )
 
         with mock.patch('mc.manage.build_docker') as mocked:
-            BuildDockerImage().run(repo, tag=tag, app=self.app)
+
+            BuildDockerImage().run(repo, commit_hash=commit, app=self.app)
             c = db.session.query(Commit).filter_by(
-                repository=repo, tag=tag
+                repository=repo, commit_hash=commit
             ).one()
             self.assertIsNotNone(c)
             mocked.delay.assert_called_once_with(c.id)
+
+            BuildDockerImage().run(repo, tag=tag, app=self.app)
+            c1 = db.session.query(Commit).filter_by(
+                repository=repo, tag=tag
+            ).one()
+            self.assertEqual(c.id, c1.id)
+
             BuildDockerImage().run(repo, tag=tag, app=self.app)
             c2 = db.session.query(Commit).filter_by(
                 repository=repo, tag=tag

@@ -78,10 +78,17 @@ class GithubListener(Resource):
             raise UnknownRepoError("{}".format(repo))
 
         try:
-            return Commit.query.filter_by(
+            c = Commit.query.filter_by(
                 commit_hash=commit_hash,
                 repository=repo
             ).one()
+
+            if not c.tag and tag:
+                c.tag = tag
+                db.session.add(c)
+                db.session.commit()
+
+            return c
         except NoResultFound:
             return Commit(
                 commit_hash=commit_hash,

@@ -89,6 +89,10 @@ class BuildDockerImage(Command):
                     commit_hash=commit_hash,
                     repository=repo
                 ).one()
+
+                if not c.tag and tag:
+                    c.tag = tag
+
             except NoResultFound:
                 c = Commit(
                     commit_hash=commit_hash,

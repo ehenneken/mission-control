@@ -202,18 +202,17 @@ class TestStaticMethodUtilities(TestCase):
         with self.assertRaises(UnknownRepoError):
             GithubListener.parse_github_payload(r)
 
-        # Modify the data such that the payload refers to a known repo,
-        # assert that the returned models.Commit contains the expected data
+        # There should be not tag added to the commit, but we should expect
+        # the returned model.Commit to be correct
         r.data = r.data.replace('"name": "governor"', '"name": "adsws"')
+        r.data = r.data.replace('refs/tags', 'heads/commits')
+        print r.data
         c = GithubListener.parse_github_payload(r)
         self.assertEqual(
             c.commit_hash,
             '2a047ead58a3a87b46388ac67fe08c944c3230e0'
         )
-        self.assertEqual(
-            c.tag,
-            'v1.0.0'
-        )
+        self.assertIsNone(c.tag)
         self.assertEqual(c.author, 'adsabs')
         self.assertEqual(c.repository, 'adsws')
         self.assertEqual(
@@ -224,25 +223,28 @@ class TestStaticMethodUtilities(TestCase):
             c.timestamp,
             datetime.datetime(2015, 8, 12, 16, 18, 57, tzinfo=tzoffset(None, -4*60*60))
         )
+        db.session.add(c)
+        db.session.commit()
 
-        # Assert that a different timeformat returns the expected
-        # models.Commit.timestamp value
-        r.data = r.data.replace(
-            "2015-08-12T16:18:57-04:00",
-            "2015-06-09T18:19:39+02:00"
-        )
-        c = GithubListener.parse_github_payload(r)
+        # Now put the tag, the tag should be added to the commit
+        r.data = r.data.replace('heads/commits', 'refs/tags')
+        c2 = GithubListener.parse_github_payload(r)
         self.assertEqual(
-            c.timestamp,
-            datetime.datetime(2015, 6, 9, 18, 19, 39, tzinfo=tzoffset(None, 7200))
+            c2.commit_hash,
+            '2a047ead58a3a87b46388ac67fe08c944c3230e0'
         )
+        self.assertEqual(
+            c2.tag,
+            'v1.0.0'
+        )
+        self.assertEqual(c.id, c2.id)
 
         # Re-sending a previously saved commit payload should return that
         # previously saved commit
         db.session.add(c)
         db.session.commit()
         self.assertEqual(len(db.session.query(Commit).all()), 1)
-        c2 = GithubListener.parse_github_payload(r)
-        db.session.add(c2)
+        c3 = GithubListener.parse_github_payload(r)
+        db.session.add(c3)
         db.session.commit()
         self.assertEqual(len(db.session.query(Commit).all()), 1)
