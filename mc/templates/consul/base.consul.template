@@ -1,0 +1,17 @@
+#!/bin/bash
+
+/usr/bin/python -c "
+import json
+import consulate
+
+# Load configuration file from JSON
+with open('{{service}}/{{service}}.config.json') as json_file:
+    config = json.load(json_file)
+
+# Connect to consul
+consul = consulate.Consul(port={{port}})
+
+# Load key/values from the configuration into the consul key/value store
+for key, value in config.iteritems():
+    consul.kv[key] = value
+"

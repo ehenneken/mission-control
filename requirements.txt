@@ -12,3 +12,4 @@ nose
 boto3
 httpretty
 coveralls
+consulate==0.6.0
