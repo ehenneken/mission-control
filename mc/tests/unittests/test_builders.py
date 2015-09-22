@@ -165,7 +165,8 @@ class TestDockerRunner(unittest.TestCase):
         self.instance.create_container.assert_called_with(
             host_config={'NetworkMode': 'host', "Memory": 104857600},
             name='redis',
-            image='redis'
+            image='redis',
+            command=None
         )
         self.instance.pull.assert_called_with('redis')
 

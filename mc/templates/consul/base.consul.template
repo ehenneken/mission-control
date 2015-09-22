@@ -1,0 +1,24 @@
+#!/bin/bash
+
+/usr/bin/python -c "
+import json
+import consulate
+
+def configure_database(value):
+    if type(value) != basestring or not 'DB_HOST' in value:
+        return value
+
+    value = value.replace('DB_HOST', '{{db_host}}').replace('DB_PORT', {{db_port}})
+    return value
+
+# Load configuration file from JSON
+with open('{{service}}/{{service}}.config.json') as json_file:
+    config = json.load(json_file)
+
+# Connect to consul
+consul = consulate.Consul(port={{port}})
+
+# Load key/values from the configuration into the consul key/value store
+for key, value in config.iteritems():
+    consul.kv[key] = configure_database(value)
+"

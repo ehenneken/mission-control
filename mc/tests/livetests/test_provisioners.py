@@ -1,14 +1,96 @@
 """
 Test provisioners.py
 """
-from mc.provisioners import PostgresProvisioner
+from mc.provisioners import PostgresProvisioner, ConsulProvisioner
 from mc.builders import DockerRunner
 from mc.app import create_app
 
 from werkzeug.security import gen_salt
 from sqlalchemy import create_engine
 import time
+import json
 import unittest
+import requests
+import consulate
+
+
+class TestConsulProvisioner(unittest.TestCase):
+    """
+    Test the ConsulProvisioner. Use the Docker builder to create the key/value
+    store
+    """
+
+    def setUp(self):
+        """
+        Starts a consul node for all the tests
+        """
+        self.name = 'livetest-consul-{}'.format(gen_salt(5))
+        self.builder = DockerRunner(
+            image='adsabs/consul:v1.0.0',
+            name=self.name,
+            mem_limit="50m",
+            port_bindings={8500: None},
+            command=['-server', '-bootstrap']
+        )
+
+        self.builder.start()
+        self.port = self.builder.client.port(
+            self.builder.container['Id'],
+            8500
+        )[0]['HostPort']
+
+        # Let consul start
+        time.sleep(5)
+
+    def tearDown(self):
+        """
+        Tears down the consul node used by the tests
+        """
+        self.builder.teardown()
+
+    def test_running_consul(self):
+        """
+        Checks that consul is started correctly via docker
+        """
+        response = requests.get('http://localhost:{}'
+                                .format(self.port))
+        self.assertEqual(
+            response.status_code,
+            200,
+            msg='Consul service is non-responsive: {}'.format(response.text)
+        )
+
+    def _provision(self, service):
+        """
+        Run the provision for a given service
+        """
+        app = create_app()
+        app.config['DEPENDENCIES']['CONSUL']['PORT'] = self.port
+        with app.app_context():
+            ConsulProvisioner(service)()
+
+    def test_provisioning_adsws_service(self):
+        """
+        First run the provisioner and then we can check that some configuration
+        values have been correctly set in the key/value store
+        """
+
+        self._provision('adsws')
+
+        # Obtain what we expect to find
+        config_file = '{}/{}/adsws/adsws.config.json'.format(
+            ConsulProvisioner.template_dir,
+            ConsulProvisioner.name,
+        )
+
+        with open(config_file) as json_file:
+            config = json.load(json_file)
+
+        # Compare with consul
+        consul = consulate.Consul(port=self.port)
+        for key in config:
+            self.assertIn(key, consul.kv.keys())
+            self.assertEqual(config[key], json.loads(consul.kv.get(key)))
 
 
 class TestPostgresProvisioner(unittest.TestCase):
@@ -31,7 +113,7 @@ class TestPostgresProvisioner(unittest.TestCase):
         )[0]['HostPort']
 
         # Give some seconds for postgres to warm up and become available
-        time.sleep(5)
+        time.sleep(10)
 
     def tearDown(self):
         self.builder.teardown()

@@ -27,6 +27,9 @@ DEPENDENCIES = {
         'USERNAME': 'postgres',
         'PORT': 5432,
         'HOST': 'localhost',
+    },
+    'CONSUL': {
+        'PORT': 8500
     }
 }
 

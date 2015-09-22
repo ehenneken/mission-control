@@ -37,4 +37,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     puppet.manifests_path = "manifests"
     puppet.manifest_file = "site.pp"
   end
+
+  config.vm.provision :docker do |docker|
+    docker.pull_images "adsabs/consul:v1.0.0"
+  end
+
 end
