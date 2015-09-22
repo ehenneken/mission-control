@@ -20,16 +20,17 @@ package {$build_packages:
 exec {'upgrade_pip':
   command => 'pip install --upgrade pip',
   require => Package[$build_packages],
+  path => $path_var,
 }
 
 # Install all python dependencies for selenium and general software
 exec {'pip_install_modules':
-  command => 'pip install -r ${pip_requirements}',
+  command => 'pip install -r /vagrant/requirements.txt',
   logoutput => on_failure,
   path => $path_var,
   tries => 2,
   timeout => 1000, # This is only require for Scipy/Matplotlib - they take a while
-  require => Package['upgrade_pip'],
+  require => Exec['upgrade_pip'],
 }
 
 Exec['apt_update_1'] -> Package[$build_packages] -> Exec['upgrade_pip'] -> Exec['pip_install_modules']

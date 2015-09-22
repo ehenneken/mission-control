@@ -1,1 +1,1 @@
-{"DEBUG": false, "CACHE": false}
+{"DEBUG": false, "CACHE": false, "SQL_ALCHEMY_BINDS": {"adsws": "postgresql://adsws:@DB_HOST:DB_PORT/adsws"}}

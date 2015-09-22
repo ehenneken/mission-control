@@ -43,9 +43,9 @@ class TestConsulProvisioner(unittest.TestCase):
         """
         Tears down the consul node used by the tests
         """
-        self.builder.teardown()
+        # self.builder.teardown()
 
-    def test_provisioning_consul(self):
+    def test_running_consul(self):
         """
         Checks that consul is started correctly via docker
         """
@@ -66,7 +66,7 @@ class TestConsulProvisioner(unittest.TestCase):
         with app.app_context():
             ConsulProvisioner(service)()
 
-    def test_provisioning_adsws(self):
+    def test_provisioning_adsws_service(self):
         """
         First run the provisioner and then we can check that some configuration
         values have been correctly set in the key/value store

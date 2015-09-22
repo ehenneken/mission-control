@@ -137,3 +137,21 @@ class TestConsulProvisioner(unittest.TestCase):
             with self.assertRaises(KeyError):
                 del current_app.config['DEPENDENCIES']['CONSUL']
                 ConsulProvisioner.get_cli_params()
+
+    def test_get_database_params(self):
+        """
+        This @statmicmethod should return a string.
+        The function should work both with and without and application context.
+        It retreives the relevant parameters from postgres, for consul.
+        """
+
+        db = ConsulProvisioner.get_db_params()
+        self.assertIsInstance(db, basestring)
+
+        with create_app().app_context():
+            self.assertEqual(db, ConsulProvisioner.get_db_params())
+            # Delete the requires config value to see if the method tries to
+            # access it. Expect KeyError
+            with self.assertRaises(KeyError):
+                del current_app.config['DEPENDENCIES']['POSTGRES']
+                ConsulProvisioner.get_db_params()

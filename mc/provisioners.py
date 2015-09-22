@@ -125,7 +125,9 @@ class ConsulProvisioner(ScriptProvisioner):
         for s in services:
             self.services[s] = template.render(
                 service=s,
-                port=ConsulProvisioner.get_cli_params()
+                port=ConsulProvisioner.get_cli_params(),
+                db_host=ConsulProvisioner.get_db_params()['HOST'],
+                db_port=ConsulProvisioner.get_db_params()['PORT']
             )
         self.scripts = self.services.values()
 
@@ -159,3 +161,16 @@ class ConsulProvisioner(ScriptProvisioner):
         )
 
         return cli
+
+    @staticmethod
+    def get_db_params():
+        """
+        finds the parameters necessary to connect to the postgres instance.
+        :return: string uri of the postgres instance
+        """
+        try:
+            config = current_app.config
+        except RuntimeError:  # Outside of application context
+            config = create_app().config
+
+        return config['DEPENDENCIES']['POSTGRES']
