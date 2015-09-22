@@ -77,6 +77,7 @@ class TestPostgresProvisioner(unittest.TestCase):
                 del current_app.config['DEPENDENCIES']['POSTGRES']
                 PostgresProvisioner.get_cli_params()
 
+
 class TestConsulProvisioner(unittest.TestCase):
     """
     Test that consul is provisioned correctly
@@ -110,7 +111,6 @@ class TestConsulProvisioner(unittest.TestCase):
         self.assertListEqual(services, P.services.keys())
         for s in services:
             self.assertIsInstance(P.services[s], basestring)
-            print P.services
             self.assertIn(
                 s,
                 P.services[s],
@@ -140,13 +140,13 @@ class TestConsulProvisioner(unittest.TestCase):
 
     def test_get_database_params(self):
         """
-        This @statmicmethod should return a string.
+        This @statmicmethod should return a dictionary.
         The function should work both with and without and application context.
         It retreives the relevant parameters from postgres, for consul.
         """
 
         db = ConsulProvisioner.get_db_params()
-        self.assertIsInstance(db, basestring)
+        self.assertIsInstance(db, dict)
 
         with create_app().app_context():
             self.assertEqual(db, ConsulProvisioner.get_db_params())

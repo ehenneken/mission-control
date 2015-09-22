@@ -39,7 +39,6 @@ class ScriptProvisioner(object):
             scripts = list(self.scripts)
             while scripts:
                 script = scripts.pop()
-                print script
                 p = subprocess.Popen(script, shell=shell)
                 p.wait()
                 self.processes["{}".format(script)] = p
@@ -98,6 +97,7 @@ class PostgresProvisioner(ScriptProvisioner):
         )
 
         return cli
+
 
 class ConsulProvisioner(ScriptProvisioner):
     """

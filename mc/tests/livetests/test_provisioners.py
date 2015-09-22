@@ -8,9 +8,11 @@ from mc.app import create_app
 from werkzeug.security import gen_salt
 from sqlalchemy import create_engine
 import time
+import json
 import unittest
 import requests
 import consulate
+
 
 class TestConsulProvisioner(unittest.TestCase):
     """
@@ -30,6 +32,7 @@ class TestConsulProvisioner(unittest.TestCase):
             port_bindings={8500: None},
             command=['-server', '-bootstrap']
         )
+
         self.builder.start()
         self.port = self.builder.client.port(
             self.builder.container['Id'],
@@ -43,7 +46,7 @@ class TestConsulProvisioner(unittest.TestCase):
         """
         Tears down the consul node used by the tests
         """
-        # self.builder.teardown()
+        self.builder.teardown()
 
     def test_running_consul(self):
         """
@@ -74,9 +77,21 @@ class TestConsulProvisioner(unittest.TestCase):
 
         self._provision('adsws')
 
+        # Obtain what we expect to find
+        config_file = '{}/{}/adsws/adsws.config.json'.format(
+            ConsulProvisioner.template_dir,
+            ConsulProvisioner.name,
+        )
+
+        with open(config_file) as json_file:
+            config = json.load(json_file)
+
+        # Compare with consul
         consul = consulate.Consul(port=self.port)
-        self.assertIn('DEBUG', consul.kv.keys())
-        self.assertEqual("false", consul.kv.get('DEBUG'))
+        for key in config:
+            self.assertIn(key, consul.kv.keys())
+            self.assertEqual(config[key], json.loads(consul.kv.get(key)))
+
 
 class TestPostgresProvisioner(unittest.TestCase):
     """
@@ -98,7 +113,7 @@ class TestPostgresProvisioner(unittest.TestCase):
         )[0]['HostPort']
 
         # Give some seconds for postgres to warm up and become available
-        time.sleep(5)
+        time.sleep(10)
 
     def tearDown(self):
         self.builder.teardown()
