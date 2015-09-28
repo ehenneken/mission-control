@@ -90,7 +90,15 @@ class TestConsulProvisioner(unittest.TestCase):
         consul = consulate.Consul(port=self.port)
         for key in config:
             self.assertIn(key, consul.kv.keys())
-            self.assertEqual(config[key], json.loads(consul.kv.get(key)))
+            self.assertEqual(
+                config[key],
+                consul.kv.get(key),
+                msg='Key {} mismatch: {} != {}'.format(
+                    key,
+                    config[key],
+                    consul.kv.get(key)
+                )
+            )
 
 
 class TestPostgresProvisioner(unittest.TestCase):
