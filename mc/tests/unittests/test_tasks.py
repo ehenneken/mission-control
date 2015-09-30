@@ -2,11 +2,46 @@
 Test utilities
 """
 from flask.ext.testing import TestCase
-from mock import patch
+from mock import patch, call
 from mc import app
 from mc.models import db, Commit, Build
-from mc.tasks import register_task_revision, build_docker, update_service
+from mc.tasks import register_task_revision, build_docker, update_service, \
+    start_test_environment
 import datetime
+
+
+class TestStartTestEnvironment(TestCase):
+    """
+    Test the start_test_environment task
+    """
+    def create_app(self):
+        return app.create_app()
+
+    @patch('mc.tasks.PostgresProvisioner')
+    @patch('mc.tasks.ConsulProvisioner')
+    @patch('mc.tasks.DockerRunner')
+    def test_containers_are_built(self,
+                                  mocked_docker_runner,
+                                  mocked_consul_provisioner,
+                                  mocked_postgres_provisioner
+                                  ):
+        """
+        Tests that the containers relevant for the test environment are started
+        """
+
+        mocked_consul_provisioner.return_value = 'provision_consul'
+        mocked_postgres_provisioner.return_value = 'provision_postgres'
+
+        instance_docker_runner = mocked_docker_runner.return_value
+        instance_docker_runner.start.return_value = None
+
+        start_test_environment(test_id=None)
+
+        calls = [call(callback=None),
+                 call(callback='provision_consul'),
+                 call(callback='provision_postgres')]
+
+        instance_docker_runner.start.assert_has_calls(calls)
 
 
 class TestRegisterTaskDefinition(TestCase):

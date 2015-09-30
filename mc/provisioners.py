@@ -23,7 +23,7 @@ class ScriptProvisioner(object):
         self.shell = shell
         self.directory = None
 
-    def __call__(self, directory=None, shell=None):
+    def __call__(self, directory=None, shell=None, **kwargs):
         """
         Creates a Popen process and assigns it to self.process
         :param directory: Directory to cd into

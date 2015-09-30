@@ -30,6 +30,9 @@ DEPENDENCIES = {
     },
     'CONSUL': {
         'PORT': 8500
+    },
+    'REDIS': {
+        'PORT': 6379
     }
 }
 

@@ -9,9 +9,10 @@ from mc.app import create_celery
 from mc.models import db, Build, Commit
 from mc.builders import DockerImageBuilder, DockerRunner
 from mc.utils import get_boto_session
-from mc.provisioners import PostgresProvisioner
+from mc.provisioners import PostgresProvisioner, ConsulProvisioner
 
 celery = create_celery()
+
 
 @celery.task()
 def register_task_revision(ecsbuild):
@@ -51,7 +52,7 @@ def update_service(cluster, service, desiredCount, taskDefinition):
 
 
 @celery.task()
-def make_test_environment(test_id, config=None):
+def start_test_environment(test_id, config={}):
     """
     Creates the test environment:
       - Run dependency containers
@@ -63,6 +64,8 @@ def make_test_environment(test_id, config=None):
     :return: None
     """
 
+    services = ['adsws']
+
     dependencies = config.setdefault('dependencies', [
         {
             "name": "redis",
@@ -72,12 +75,12 @@ def make_test_environment(test_id, config=None):
         {
             "name": "consul",
             "image": "consul",
-            "callback": provision_consol,
+            "callback": ConsulProvisioner(services=services),
         },
         {
             "name": "postgres",
             "image": "postgres",
-            "callback": provision_psql,
+            "callback": PostgresProvisioner(services=services),
         },
     ])
 
@@ -86,8 +89,8 @@ def make_test_environment(test_id, config=None):
             image=d['image'],
             name="{}-{}".format(d['name'], test_id),
         )
+        print d['callback']
         builder.start(callback=d['callback'])
-
 
 
 @celery.task()
@@ -129,3 +132,9 @@ def build_docker(commit_id):
     )
     db.session.add(build)
     db.session.commit()
+
+
+@celery.task()
+def stop_test_environment():
+    """Doc"""
+    pass

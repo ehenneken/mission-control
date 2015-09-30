@@ -1,8 +1,10 @@
 """
 Test builders
 """
+import time
 import unittest
-from mc.builders import DockerRunner
+
+from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner
 from werkzeug.security import gen_salt
 
 
@@ -62,3 +64,74 @@ class TestDockerRunner(unittest.TestCase):
             filters={'status': 'running'}
         )]
         self.assertIn(self.builder.container['Id'], running)
+
+
+class TestConsulDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner for the Consul service
+    """
+
+    def setUp(self):
+        self.name = 'livetest-consul-{}'.format(gen_salt(5))
+        self.builder = ConsulDockerRunner(
+            name=self.name,
+        )
+
+    def tearDown(self):
+        """
+        teardown the containers
+        """
+        try:
+            self.builder.teardown()
+        except:
+            pass
+
+    def test_is_ready(self):
+        """
+        Check if the instance is ready
+        """
+
+        self.builder.start()
+        while not self.builder.ready:
+            time.sleep(1)
+        self.assertTrue(self.builder.running)
+        self.assertTrue(self.builder.ready)
+
+        self.builder.teardown()
+        self.assertFalse(self.builder.ready)
+        self.assertFalse(self.builder.running)
+
+
+class TestPostgresDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner for the Postgres service
+    """
+
+    def setUp(self):
+        self.name = 'livetest-postgres-{}'.format(gen_salt(5))
+        self.builder = PostgresDockerRunner(
+            name=self.name,
+        )
+
+    def tearDown(self):
+        """
+        teardown the containers
+        """
+        try:
+            self.builder.teardown()
+        except:
+            pass
+
+    def test_is_ready(self):
+        """
+        Check if the instance is ready
+        """
+
+        self.builder.start()
+
+        self.assertTrue(self.builder.running)
+        self.assertTrue(self.builder.ready)
+
+        self.builder.teardown()
+        self.assertFalse(self.builder.ready)
+        self.assertFalse(self.builder.running)

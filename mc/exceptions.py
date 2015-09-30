@@ -31,3 +31,9 @@ class UnknownServiceError(Exception):
     """
     Raised when a service is not known to mc
     """
+
+
+class TimeOutError(Exception):
+    """
+    Raised when a generic function does not respond after a given time
+    """

@@ -14,7 +14,8 @@ from flask.ext.migrate import Migrate, MigrateCommand
 from flask import current_app
 from mc.models import db, Build, Commit
 from mc.app import create_app
-from mc.tasks import build_docker, register_task_revision, update_service
+from mc.tasks import build_docker, register_task_revision, update_service, \
+    start_test_environment, stop_test_environment
 from mc.builders import ECSBuilder
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
@@ -22,6 +23,27 @@ from sqlalchemy.orm.exc import NoResultFound
 app = create_app()
 migrate = Migrate(app, db)
 manager = Manager(app)
+
+
+class ManageTestCluster(Command):
+    """
+    Script to allow the management of the test cluster
+    """
+    option_list = (
+        Option('--command', '-c', dest='command', choices=['start', 'stop'])
+    )
+
+    def run(self, command):
+        """
+        Run command
+        :param command: command to pass to the cluster environment
+        """
+
+        command_look_up = {
+            'start': start_test_environment,
+            'stop': stop_test_environment,
+        }
+        command_look_up[command]()
 
 
 class CreateDatabase(Command):
@@ -197,7 +219,7 @@ class UpdateService(Command):
                            service=service,
                            desiredCount=desiredCount,
                            taskDefinition=taskDefinition,
-            )
+                           )
 
 
 manager.add_command('update_service', UpdateService)

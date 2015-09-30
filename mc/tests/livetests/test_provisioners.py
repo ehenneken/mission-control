@@ -2,7 +2,7 @@
 Test provisioners.py
 """
 from mc.provisioners import PostgresProvisioner, ConsulProvisioner
-from mc.builders import DockerRunner
+from mc.builders import DockerRunner, ConsulDockerRunner
 from mc.app import create_app
 
 from werkzeug.security import gen_salt
@@ -25,7 +25,7 @@ class TestConsulProvisioner(unittest.TestCase):
         Starts a consul node for all the tests
         """
         self.name = 'livetest-consul-{}'.format(gen_salt(5))
-        self.builder = DockerRunner(
+        self.builder = ConsulDockerRunner(
             image='adsabs/consul:v1.0.0',
             name=self.name,
             mem_limit="50m",
@@ -34,13 +34,11 @@ class TestConsulProvisioner(unittest.TestCase):
         )
 
         self.builder.start()
+
         self.port = self.builder.client.port(
             self.builder.container['Id'],
             8500
         )[0]['HostPort']
-
-        # Let consul start
-        time.sleep(5)
 
     def tearDown(self):
         """

@@ -6,12 +6,30 @@ from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.tests.stubdata import github_commit_payload
 from mc.manage import BuildDockerImage, MakeDockerrunTemplate, \
-    RegisterTaskRevision, UpdateService
+    RegisterTaskRevision, UpdateService, ManageTestCluster
 from mc.models import db, Commit, Build
 import mock
 import httpretty
 from sqlalchemy.orm.exc import NoResultFound
 import json
+
+
+class TestManageTestCluster(TestCase):
+    """
+    Test the manage.py test_cluster command
+    """
+    def create_app(self):
+        return create_app()
+
+    @mock.patch('mc.manage.start_test_environment')
+    def test_start_request(self, mocked):
+        """
+        Test starting the cluster
+        """
+        ManageTestCluster().run(
+            command='start'
+        )
+        mocked.assert_called_with()
 
 
 class TestRegisterTaskRevision(TestCase):

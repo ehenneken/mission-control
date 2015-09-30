@@ -1,15 +1,21 @@
 """
 Test builders
 """
+
 import unittest
 import io
 import mock
 import jinja2
 import json
 import tarfile
-from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder
+
+from docker.errors import NotFound
+from requests import ConnectionError
+from psycopg2 import OperationalError
+from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder, ConsulDockerRunner, PostgresDockerRunner
 from mc.models import Commit, Build
 from mc.exceptions import BuildError
+
 
 class TestECSbuilder(unittest.TestCase):
     """
@@ -147,6 +153,18 @@ class TestDockerRunner(unittest.TestCase):
     def setUp(self, mocked):
         instance = mocked.return_value
         instance.create_container.return_value = {'Id': 'mocked'}
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
         self.instance = instance
         self.builder = DockerRunner(
             image='redis',
@@ -187,3 +205,107 @@ class TestDockerRunner(unittest.TestCase):
         self.builder.teardown()
         self.instance.stop.assert_called_with(container='mocked')
         self.instance.remove_container.assert_called_with(container='mocked')
+
+    def test_running(self):
+        """
+        Tests if the docker container is running
+        """
+
+        self.instance.containers.return_value = []
+        self.assertFalse(self.builder.running)
+
+        self.instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.assertTrue(self.builder.running)
+
+
+class TestConsulDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner
+    """
+
+    @mock.patch('mc.builders.Client')
+    def setUp(self, mocked):
+        instance = mocked.return_value
+        instance.create_container.return_value = {'Id': 'mocked'}
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.instance = instance
+        self.builder = ConsulDockerRunner(network_mode="host")
+
+    def test_ready(self):
+        """
+        Tests the health check of the service
+        """
+
+        with mock.patch('mc.builders.Consul') as mocked:
+            instance = mocked.return_value
+            instance.kv.get.side_effect = ConnectionError
+            self.assertFalse(self.builder.ready)
+
+        with mock.patch('mc.builders.Consul') as mocked:
+            instance = mocked.return_value
+            instance.kv.get.return_value = ''
+            self.assertTrue(self.builder.ready)
+
+
+class TestPostgresDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner
+    """
+
+    @mock.patch('mc.builders.Client')
+    def setUp(self, mocked):
+        instance = mocked.return_value
+        instance.create_container.return_value = {'Id': 'mocked'}
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.instance = instance
+        self.builder = PostgresDockerRunner(network_mode="host")
+
+    def test_ready(self):
+        """
+        Tests the health check of the service
+        """
+
+        with mock.patch('mc.builders.create_engine') as mocked:
+            engine_instance = mocked.return_value
+            engine_instance.connect.side_effect = OperationalError
+            self.assertFalse(self.builder.ready)
+
+        with mock.patch('mc.builders.create_engine') as mocked:
+            engine_instance = mocked.return_value
+            engine_instance.connect.return_value = ''
+            self.assertTrue(self.builder.ready)

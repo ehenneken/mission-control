@@ -1,12 +1,20 @@
+from mc.app import create_jinja2
+from mc.utils import timed
+from mc.exceptions import BuildError, TimeOutError
 from flask import current_app
 from docker import Client
 from docker.utils import create_host_config
-from mc.app import create_jinja2
-from mc.exceptions import BuildError
+from docker.errors import NotFound
+from sqlalchemy.exc import OperationalError
+from requests import ConnectionError
+from consulate import Consul
+from sqlalchemy import create_engine
+
 import os
 import logging
 import tarfile
 import io
+import mc.config as config
 
 
 class ECSBuilder(object):
@@ -261,9 +269,9 @@ class DockerRunner(object):
         self.name = name
         self.command = command
         self.host_config = create_host_config(**kwargs)
+        self.running_properties = None
 
         self.client = Client(version='auto')
-        self.running = None
         self.container = None
         try:
             self.logger = current_app.logger
@@ -300,8 +308,11 @@ class DockerRunner(object):
         if response:
             self.logger.warning(response)
 
+        timed(lambda: self.running, time_out=30)
+        timed(lambda: self.ready, time_out=30)
+
         if callable(callback):
-            callback(self.container)
+            callback(container=self.container)
 
     def teardown(self):
         """
@@ -316,10 +327,109 @@ class DockerRunner(object):
         if response:
             self.logger.warning(response)
 
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+        return True
+
+    @property
+    def running(self):
+        """
+        Determine if the container started
+        :return: boolean
+        """
+        running_properties = [i for i in self.client.containers() if i['Id'] == self.container['Id']]
+
+        if len(running_properties) == 0 or 'Up' not in running_properties[0].get('Status', ''):
+            return False
+        else:
+            self.running_properties = running_properties
+            return True
 
 
+class ConsulDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
+
+    service_name = 'consul'
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        image = 'adsabs/consul:v1.0.0' if not image else image
+        name = self.service_name if not name else name
+        command = ['-server', '-bootstrap'] if not command else command
+
+        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('port_bindings', {8500: None})
+
+        super(ConsulDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+
+        try:
+            running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
+        except NotFound:
+            return False
+
+        running_host = running[0]['HostIp']
+        running_port = running[0]['HostPort']
+
+        consul = Consul(running_host, port=running_port)
+
+        try:
+            consul.kv.get('')
+            return True
+        except ConnectionError:
+            return False
 
 
+class PostgresDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
 
+    service_name = 'postgres'
 
+    def __init__(self, image=None, name=None, command=None, **kwargs):
 
+        image = 'postgres' if not image else image
+        name = self.service_name if not name else name
+
+        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('port_bindings', {5432: None})
+
+        super(PostgresDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        :return: boolean
+        """
+
+        try:
+            running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
+        except NotFound:
+            return False
+
+        running_host = running[0]['HostIp']
+        running_port = running[0]['HostPort']
+
+        postgres_uri = 'postgresql://postgres:@{host}:{port}'.format(
+            host=running_host,
+            port=running_port
+        )
+
+        try:
+            engine = create_engine(postgres_uri)
+            engine.connect()
+            return True
+        except OperationalError as e:
+            return False
