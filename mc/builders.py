@@ -15,6 +15,7 @@ import logging
 import tarfile
 import io
 import mc.config as config
+import requests
 
 
 class ECSBuilder(object):
@@ -270,6 +271,7 @@ class DockerRunner(object):
         self.command = command
         self.host_config = create_host_config(**kwargs)
         self.running_properties = None
+        self.time_out = 30
 
         self.client = Client(version='auto')
         self.container = None
@@ -308,8 +310,8 @@ class DockerRunner(object):
         if response:
             self.logger.warning(response)
 
-        timed(lambda: self.running, time_out=30)
-        timed(lambda: self.ready, time_out=30)
+        timed(lambda: self.running, time_out=30, exit_on=True)
+        timed(lambda: self.ready, time_out=30, exit_on=True)
 
         if callable(callback):
             callback(container=self.container)
@@ -328,12 +330,13 @@ class DockerRunner(object):
             self.logger.warning(response)
 
         try:
-            timed(lambda: self.running, time_out=30, exit_on=False)
+            timed(lambda: self.running, time_out=self.time_out, exit_on=False)
         except TimeOutError:
             self.logger.warning(
                 'Container teardown timed out, may still be running {}'
                 .format(self.container)
             )
+            print 'Timeout'
 
     @property
     def ready(self):
@@ -389,13 +392,17 @@ class ConsulDockerRunner(DockerRunner):
         running_host = running[0]['HostIp']
         running_port = running[0]['HostPort']
 
-        consul = Consul(running_host, port=running_port)
-
         try:
-            items = consul.kv.items()
-            self.logger.info('Consul is healthy')
+            response = requests.get('http://{}:{}/v1/kv/health'
+                                    .format(running_host, running_port))
+        except requests.ConnectionError:
+            return False
+
+        if response.status_code == 404:
             return True
-        except ConnectionError:
+        elif response.status_code == 500:
+            return False
+        else:
             return False
 
 

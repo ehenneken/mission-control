@@ -34,10 +34,6 @@ class TestConsulProvisioner(unittest.TestCase):
         )
 
         self.builder.start()
-
-        print self.builder.running
-        print self.builder.ready
-
         self.port = self.builder.client.port(
             self.builder.container['Id'],
             8500
@@ -53,11 +49,20 @@ class TestConsulProvisioner(unittest.TestCase):
         """
         Checks that consul is started correctly via docker
         """
-        response = requests.get('http://localhost:{}'
-                                .format(self.port))
+
+        # cs = consulate.Consul(port=self.port)
+        # cs.kv.set('test', 'test')
+        # print cs.kv.items()
+
+        while True:
+            response = requests.get('http://localhost:{}/v1/kv/health'
+                                        .format(self.port))
+            if response.status_code == 404:
+                break
+
         self.assertEqual(
             response.status_code,
-            200,
+            404,
             msg='Consul service is non-responsive: {}'.format(response.text)
         )
 
@@ -93,7 +98,7 @@ class TestConsulProvisioner(unittest.TestCase):
             self.assertIn(key, consul.kv.keys())
             self.assertEqual(
                 config[key],
-                consul.kv.get(key),
+                json.loads(consul.kv.get(key)),
                 msg='Key {} mismatch: {} != {}'.format(
                     key,
                     config[key],
@@ -116,6 +121,7 @@ class TestPostgresProvisioner(unittest.TestCase):
             port_bindings={5432: None},
         )
         self.builder.start()
+        time.sleep(10)
         self.port = self.builder.client.port(
             self.builder.container['Id'],
             5432

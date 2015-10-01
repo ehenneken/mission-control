@@ -2,20 +2,30 @@
 Test builders
 """
 
-import unittest
+import re
 import io
 import mock
 import jinja2
 import json
 import tarfile
+import unittest
+import httpretty
+import requests
 
-from docker.errors import NotFound
-from requests import ConnectionError
-from psycopg2 import OperationalError
+from sqlalchemy.exc import OperationalError
 from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder, ConsulDockerRunner, PostgresDockerRunner
 from mc.models import Commit, Build
 from mc.exceptions import BuildError
+from httmock import all_requests, HTTMock
 
+
+@all_requests
+def response_500(url, request):
+    return {'status_code': 500, 'content': 'Failed'}
+
+@all_requests
+def response_404(url, request):
+    return {'status_code': 404, 'content': 'Not found'}
 
 class TestECSbuilder(unittest.TestCase):
     """
@@ -113,7 +123,6 @@ class TestDockerImageBuilder(unittest.TestCase):
                 f = tf.getmember(fn)
                 self.assertEqual(f.mode, 0555)
 
-
     @mock.patch('mc.builders.Client')
     def test_docker_build(self, mocked):
         """
@@ -202,6 +211,7 @@ class TestDockerRunner(unittest.TestCase):
         """
         the teardown() method should be called with the correct container id
         """
+        self.builder.time_out = 0.1
         self.builder.teardown()
         self.instance.stop.assert_called_with(container='mocked')
         self.instance.remove_container.assert_called_with(container='mocked')
@@ -256,18 +266,17 @@ class TestConsulDockerRunner(unittest.TestCase):
 
     def test_ready(self):
         """
-        Tests the health check of the service
+        Tests the health check of the service and makes sure it is ready
         """
-
-        with mock.patch('mc.builders.Consul') as mocked:
-            instance = mocked.return_value
-            instance.kv.get.side_effect = ConnectionError
-            self.assertFalse(self.builder.ready)
-
-        with mock.patch('mc.builders.Consul') as mocked:
-            instance = mocked.return_value
-            instance.kv.get.return_value = ''
+        with HTTMock(response_404):
             self.assertTrue(self.builder.ready)
+
+    def test_not_ready(self):
+        """
+        Tests the health check of the service and makes sure it is not ready
+        """
+        with HTTMock(response_500):
+            self.assertFalse(self.builder.ready)
 
 
 class TestPostgresDockerRunner(unittest.TestCase):
@@ -302,7 +311,7 @@ class TestPostgresDockerRunner(unittest.TestCase):
 
         with mock.patch('mc.builders.create_engine') as mocked:
             engine_instance = mocked.return_value
-            engine_instance.connect.side_effect = OperationalError
+            engine_instance.connect.side_effect = OperationalError('', '', '', '')
             self.assertFalse(self.builder.ready)
 
         with mock.patch('mc.builders.create_engine') as mocked:

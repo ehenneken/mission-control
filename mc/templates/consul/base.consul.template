@@ -20,5 +20,5 @@ consul = consulate.Consul(port={{port}})
 
 # Load key/values from the configuration into the consul key/value store
 for key, value in config.iteritems():
-    consul.kv[key] = configure_database(value)
+    consul.kv.set(key, configure_database(value))
 "
