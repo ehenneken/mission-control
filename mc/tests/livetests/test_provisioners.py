@@ -35,6 +35,9 @@ class TestConsulProvisioner(unittest.TestCase):
 
         self.builder.start()
 
+        print self.builder.running
+        print self.builder.ready
+
         self.port = self.builder.client.port(
             self.builder.container['Id'],
             8500

@@ -43,6 +43,14 @@ class TestTimed(unittest.TestCase):
         with self.assertRaises(TimeOutError):
             timed(func, time_out=1)
 
+    def test_times_success_want_opposite_return_value(self):
+        """
+        Test it passes for a return value of False
+        """
+        func = lambda: False
+        response = timed(func, exit_on=False)
+        self.assertIsNone(response)
+
 
 class FakeRequest:
     """

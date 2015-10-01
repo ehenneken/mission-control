@@ -327,6 +327,14 @@ class DockerRunner(object):
         if response:
             self.logger.warning(response)
 
+        try:
+            timed(lambda: self.running, time_out=30, exit_on=False)
+        except TimeOutError:
+            self.logger.warning(
+                'Container teardown timed out, may still be running {}'
+                .format(self.container)
+            )
+
     @property
     def ready(self):
         """
@@ -384,7 +392,8 @@ class ConsulDockerRunner(DockerRunner):
         consul = Consul(running_host, port=running_port)
 
         try:
-            consul.kv.get('')
+            items = consul.kv.items()
+            self.logger.info('Consul is healthy')
             return True
         except ConnectionError:
             return False
