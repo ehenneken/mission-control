@@ -2,7 +2,7 @@
 Test utilities
 """
 from flask.ext.testing import TestCase
-from mock import patch, call
+from mock import patch, call, Mock
 from mc import app
 from mc.models import db, Commit, Build
 from mc.tasks import register_task_revision, build_docker, update_service, \
@@ -19,29 +19,42 @@ class TestStartTestEnvironment(TestCase):
 
     @patch('mc.tasks.PostgresProvisioner')
     @patch('mc.tasks.ConsulProvisioner')
-    @patch('mc.tasks.DockerRunner')
+    @patch('mc.builders.PostgresDockerRunner')
+    @patch('mc.builders.ConsulDockerRunner')
+    @patch('mc.builders.DockerRunner')
     def test_containers_are_built(self,
                                   mocked_docker_runner,
+                                  mocked_consul_runner,
+                                  mocked_postgres_runner,
                                   mocked_consul_provisioner,
                                   mocked_postgres_provisioner
                                   ):
         """
         Tests that the containers relevant for the test environment are started
         """
-
         mocked_consul_provisioner.return_value = 'provision_consul'
         mocked_postgres_provisioner.return_value = 'provision_postgres'
 
         instance_docker_runner = mocked_docker_runner.return_value
         instance_docker_runner.start.return_value = None
 
+        instance_consul_runner = mocked_consul_runner.return_value
+        instance_consul_runner.start.return_value = None
+
+        instance_postgres_runner = mocked_postgres_runner.return_value
+        instance_postgres_runner.start.return_value = None
+
         start_test_environment(test_id=None)
 
-        calls = [call(callback=None),
-                 call(callback='provision_consul'),
-                 call(callback='provision_postgres')]
-
-        instance_docker_runner.start.assert_has_calls(calls)
+        instance_docker_runner.start.assert_has_calls(
+            [call(callback=None)]
+        )
+        instance_consul_runner.start.assert_has_calls(
+            [call(callback='provision_consul')]
+        )
+        instance_postgres_runner.start.assert_has_calls(
+            [call(callback='provision_postgres')]
+        )
 
 
 class TestRegisterTaskDefinition(TestCase):

@@ -7,7 +7,7 @@ import json
 
 from mc.app import create_celery
 from mc.models import db, Build, Commit
-from mc.builders import DockerImageBuilder, DockerRunner
+from mc.builders import DockerImageBuilder, DockerRunner, docker_runner_factory
 from mc.utils import get_boto_session
 from mc.provisioners import PostgresProvisioner, ConsulProvisioner
 
@@ -52,7 +52,7 @@ def update_service(cluster, service, desiredCount, taskDefinition):
 
 
 @celery.task()
-def start_test_environment(test_id, config={}):
+def start_test_environment(test_id='livetest', config={}):
     """
     Creates the test environment:
       - Run dependency containers
@@ -69,28 +69,25 @@ def start_test_environment(test_id, config={}):
     dependencies = config.setdefault('dependencies', [
         {
             "name": "redis",
-            "image": "redis",
-            "callback": None,
+            "image": "redis:2.8.9",
         },
         {
             "name": "consul",
-            "image": "consul",
-            "callback": ConsulProvisioner(services=services),
+            "image": "adsabs/consul:v1.0.0",
         },
         {
             "name": "postgres",
-            "image": "postgres",
-            "callback": PostgresProvisioner(services=services),
+            "image": "postgres:9.3",
         },
     ])
 
     for d in dependencies:
-        builder = DockerRunner(
+        builder = docker_runner_factory(image=d['image'])(
             image=d['image'],
             name="{}-{}".format(d['name'], test_id),
         )
-        print d['callback']
-        builder.start(callback=d['callback'])
+        builder.start()
+        builder.provision(services=services)
 
 
 @celery.task()

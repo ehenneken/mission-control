@@ -1,13 +1,11 @@
 from mc.app import create_jinja2
 from mc.utils import timed
 from mc.exceptions import BuildError, TimeOutError
+from mc.provisioners import ConsulProvisioner, PostgresProvisioner
 from flask import current_app
 from docker import Client
 from docker.utils import create_host_config
-from docker.errors import NotFound
 from sqlalchemy.exc import OperationalError
-from requests import ConnectionError
-from consulate import Consul
 from sqlalchemy import create_engine
 
 import os
@@ -256,6 +254,7 @@ class DockerRunner(object):
     Responsible for pulling a docker image, creating a container, running
     the container, then tearing down the container
     """
+    service_name = None
 
     def __init__(self, image, name, command=None, **kwargs):
         """
@@ -272,6 +271,9 @@ class DockerRunner(object):
         self.host_config = create_host_config(**kwargs)
         self.running_properties = None
         self.time_out = 30
+        self.pull = kwargs.get('pull', True)
+        self.running_port = None
+        self.running_host = None
 
         self.client = Client(version='auto')
         self.container = None
@@ -285,10 +287,15 @@ class DockerRunner(object):
     def setup(self):
         """
         Pull the image and create a container with host_config
-        :return: None
         """
-        self.client.pull(self.image)
-        self.logger.debug("Pulled {}".format(self.image))
+
+        exists = [i for i in self.client.images() if self.image in i['RepoTags']]
+
+        # Only pull the image if we don't have it
+        if not exists or self.pull:
+            self.client.pull(self.image)
+            self.logger.debug("Pulled {}".format(self.image))
+
         self.container = self.client.create_container(
             image=self.image,
             host_config=self.host_config,
@@ -306,15 +313,20 @@ class DockerRunner(object):
             provisioning.
         :return: None
         """
+        self.logger.debug('Starting container {}'.format(self.image))
         response = self.client.start(container=self.container['Id'])
         if response:
             self.logger.warning(response)
 
+        self.logger.debug('Checking if {} service is ready'.format(self.name))
         timed(lambda: self.running, time_out=30, exit_on=True)
         timed(lambda: self.ready, time_out=30, exit_on=True)
 
+        self.logger.debug('Service {} is ready'.format(self.name))
         if callable(callback):
             callback(container=self.container)
+
+        self.logger.debug('Startup of {} complete'.format(self.name))
 
     def teardown(self):
         """
@@ -356,8 +368,25 @@ class DockerRunner(object):
         if len(running_properties) == 0 or 'Up' not in running_properties[0].get('Status', ''):
             return False
         else:
+            self.logger.info('Docker container {} running'.format(self.image))
             self.running_properties = running_properties
+
+            if self.service_name:
+                running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
+
+                self.running_host = running[0]['HostIp']
+                self.running_port = running[0]['HostPort']
+
             return True
+
+    def provision(self, services):
+        """
+        Run the provisioner of this class for a set of services
+        :param services: list of services
+        """
+        if hasattr(self, 'service_provisioner'):
+            provisioner = self.service_provisioner(services=services, container=self)
+            provisioner()
 
 
 class ConsulDockerRunner(DockerRunner):
@@ -366,10 +395,11 @@ class ConsulDockerRunner(DockerRunner):
     """
 
     service_name = 'consul'
+    service_provisioner = ConsulProvisioner
 
     def __init__(self, image=None, name=None, command=None, **kwargs):
 
-        image = 'adsabs/consul:v1.0.0' if not image else image
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
         command = ['-server', '-bootstrap'] if not command else command
 
@@ -384,17 +414,16 @@ class ConsulDockerRunner(DockerRunner):
         Check the service is ready
         """
 
-        try:
-            running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
-        except NotFound:
+        if not self.running:
             return False
 
-        running_host = running[0]['HostIp']
-        running_port = running[0]['HostPort']
-
         try:
-            response = requests.get('http://{}:{}/v1/kv/health'
-                                    .format(running_host, running_port))
+            response = requests.get(
+                'http://{}:{}/v1/kv/health'.format(
+                    self.running_host,
+                    self.running_port
+                )
+            )
         except requests.ConnectionError:
             return False
 
@@ -412,10 +441,11 @@ class PostgresDockerRunner(DockerRunner):
     """
 
     service_name = 'postgres'
+    service_provisioner = PostgresProvisioner
 
     def __init__(self, image=None, name=None, command=None, **kwargs):
 
-        image = 'postgres' if not image else image
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
 
         kwargs.setdefault('mem_limit', '50m')
@@ -430,17 +460,9 @@ class PostgresDockerRunner(DockerRunner):
         :return: boolean
         """
 
-        try:
-            running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
-        except NotFound:
-            return False
-
-        running_host = running[0]['HostIp']
-        running_port = running[0]['HostPort']
-
         postgres_uri = 'postgresql://postgres:@{host}:{port}'.format(
-            host=running_host,
-            port=running_port
+            host=self.running_host,
+            port=self.running_port
         )
 
         try:
@@ -449,3 +471,26 @@ class PostgresDockerRunner(DockerRunner):
             return True
         except OperationalError as e:
             return False
+
+
+def docker_runner_factory(image):
+    """
+    Class factory for the docker runner. Returns a specific class for a specific
+    type of service.
+
+    :param image: full name of the docker image to pull
+    :type image: basestring
+
+    :return: relevant DockerRunner class
+    """
+
+    mapping = {
+        'consul': ConsulDockerRunner,
+        'postgres': PostgresDockerRunner
+    }
+
+    for key in mapping:
+        if key in image:
+            return mapping[key]
+
+    return DockerRunner

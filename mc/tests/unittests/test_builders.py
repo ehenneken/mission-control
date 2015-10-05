@@ -238,6 +238,12 @@ class TestDockerRunner(unittest.TestCase):
         ]
         self.assertTrue(self.builder.running)
 
+    def test_can_provision(self):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        self.assertIsNone(self.builder.provision(services=['adsaws']))
+
 
 class TestConsulDockerRunner(unittest.TestCase):
     """
@@ -277,6 +283,18 @@ class TestConsulDockerRunner(unittest.TestCase):
         """
         with HTTMock(response_500):
             self.assertFalse(self.builder.ready)
+
+    @mock.patch('mc.builders.ConsulDockerRunner.service_provisioner')
+    def test_can_provision(self, mocked_consul_runner):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        self.builder.provision(services=['adsaws'])
+
+        mocked_consul_runner.assert_has_calls([
+            mock.call(services=['adsaws'], container=self.builder),
+            mock.call()()
+        ])
 
 
 class TestPostgresDockerRunner(unittest.TestCase):
@@ -318,3 +336,15 @@ class TestPostgresDockerRunner(unittest.TestCase):
             engine_instance = mocked.return_value
             engine_instance.connect.return_value = ''
             self.assertTrue(self.builder.ready)
+
+    @mock.patch('mc.builders.PostgresDockerRunner.service_provisioner')
+    def test_can_provision(self, mocked):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        self.builder.provision(services=['adsaws'])
+
+        mocked.assert_has_calls([
+            mock.call(services=['adsaws']),
+            mock.call()()
+        ])

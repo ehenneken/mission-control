@@ -4,6 +4,7 @@ Test builders
 import time
 import unittest
 
+from mc import config
 from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner
 from werkzeug.security import gen_salt
 
@@ -16,7 +17,7 @@ class TestDockerRunner(unittest.TestCase):
     def setUp(self):
         self.name = 'livetest-redis-{}'.format(gen_salt(5))
         self.builder = DockerRunner(
-            image='redis',
+            image=config.DEPENDENCIES['REDIS']['IMAGE'],
             name=self.name,
             mem_limit="50m",
         )

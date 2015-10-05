@@ -1,9 +1,10 @@
 """
 Test builders
 """
-import requests
+
 import unittest
-import time
+
+from mc.config import DEPENDENCIES
 from mc.provisioners import ConsulProvisioner, PostgresProvisioner
 from mc.tasks import start_test_environment
 from docker import Client
@@ -23,18 +24,18 @@ class TestStartTestEnvironment(unittest.TestCase):
             'dependencies': [
                 {
                     "name": "redis",
-                    "image": "redis",
+                    "image": DEPENDENCIES['REDIS']['IMAGE'],
                     "callback": None,
                 },
                 {
                     "name": "consul",
-                    "image": "adsabs/consul:v1.0.0",
-                    "callback": ConsulProvisioner(services=services),
+                    "image": DEPENDENCIES['CONSUL']['IMAGE'],
+                    "callback": None,
                 },
                 {
                     "name": "postgres",
-                    "image": "postgres",
-                    "callback": PostgresProvisioner(services=services),
+                    "image": DEPENDENCIES['POSTGRES']['IMAGE'],
+                    "callback": None,
                 }
             ]
         }
@@ -47,25 +48,21 @@ class TestStartTestEnvironment(unittest.TestCase):
 
         start_test_environment(test_id='livetests', config=self.config)
 
+        # Check consul is running
         cli = Client(base_url='unix://var/run/docker.sock')
-
-        while True:
-            consul_id = [i for i in cli.containers() if 'consul' in i['Image']][0]['Id']
-            if len(consul_id) == 0:
-                time.sleep(1)
-            else:
-                break
-
-        print cli.port(consul_id, 8500)
+        consul_id = [i for i in cli.containers() if 'consul' in i['Image']][0]['Id']
         consul_port = cli.port(consul_id, 8500)[0]['HostPort']
         consul_host = cli.port(consul_id, 8500)[0]['HostIp']
 
-        while requests.get('http://{}:{}'.format(consul_host, consul_port)).status_code != 200:
-            time.sleep(1)
-
-        session = Consul(port=consul_port)
+        session = Consul(host=consul_host, port=consul_port)
         self.assertEqual(
             session.kv.get('config/adsws/staging/DEBUG'),
-            False
+            "false"
         )
+
+        # Check postgres is running
+
+        # Check redis is running
+
+        # Check service is running
 

@@ -30,7 +30,7 @@ class ManageTestCluster(Command):
     Script to allow the management of the test cluster
     """
     option_list = (
-        Option('--command', '-c', dest='command', choices=['start', 'stop'])
+        Option('--command', '-c', dest='command', choices=['start', 'stop'], required=True),
     )
 
     def run(self, command):
@@ -228,6 +228,7 @@ manager.add_command('db', MigrateCommand)
 manager.add_command('createdb', CreateDatabase())
 manager.add_command('dockerbuild', BuildDockerImage)
 manager.add_command('print_task_def', MakeDockerrunTemplate)
+manager.add_command('test_cluster', ManageTestCluster)
 
 
 if __name__ == '__main__':

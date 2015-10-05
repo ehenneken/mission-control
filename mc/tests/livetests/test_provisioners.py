@@ -2,12 +2,11 @@
 Test provisioners.py
 """
 from mc.provisioners import PostgresProvisioner, ConsulProvisioner
-from mc.builders import DockerRunner, ConsulDockerRunner
+from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner
 from mc.app import create_app
-
 from werkzeug.security import gen_salt
 from sqlalchemy import create_engine
-import time
+
 import json
 import unittest
 import requests
@@ -26,11 +25,7 @@ class TestConsulProvisioner(unittest.TestCase):
         """
         self.name = 'livetest-consul-{}'.format(gen_salt(5))
         self.builder = ConsulDockerRunner(
-            image='adsabs/consul:v1.0.0',
             name=self.name,
-            mem_limit="50m",
-            port_bindings={8500: None},
-            command=['-server', '-bootstrap']
         )
 
         self.builder.start()
@@ -50,13 +45,9 @@ class TestConsulProvisioner(unittest.TestCase):
         Checks that consul is started correctly via docker
         """
 
-        # cs = consulate.Consul(port=self.port)
-        # cs.kv.set('test', 'test')
-        # print cs.kv.items()
-
         while True:
             response = requests.get('http://localhost:{}/v1/kv/health'
-                                        .format(self.port))
+                                    .format(self.port))
             if response.status_code == 404:
                 break
 
@@ -98,7 +89,7 @@ class TestConsulProvisioner(unittest.TestCase):
             self.assertIn(key, consul.kv.keys())
             self.assertEqual(
                 config[key],
-                json.loads(consul.kv.get(key)),
+                consul.kv.get(key),
                 msg='Key {} mismatch: {} != {}'.format(
                     key,
                     config[key],
@@ -114,21 +105,14 @@ class TestPostgresProvisioner(unittest.TestCase):
 
     def setUp(self):
         self.name = 'livetest-postgres-{}'.format(gen_salt(5))
-        self.builder = DockerRunner(
-            image='postgres',
+        self.builder = PostgresDockerRunner(
             name=self.name,
-            mem_limit="50m",
-            port_bindings={5432: None},
         )
         self.builder.start()
-        time.sleep(10)
         self.port = self.builder.client.port(
             self.builder.container['Id'],
             5432
         )[0]['HostPort']
-
-        # Give some seconds for postgres to warm up and become available
-        time.sleep(10)
 
     def tearDown(self):
         self.builder.teardown()

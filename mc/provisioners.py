@@ -1,14 +1,16 @@
 """
 Provisioners live here
 """
-import subprocess
-from collections import OrderedDict
+
 import os
-from flask import current_app
+import logging
+import subprocess
 
 from mc.app import create_jinja2, create_app
 from mc.utils import ChangeDir
 from mc.exceptions import UnknownServiceError
+from flask import current_app
+from collections import OrderedDict
 
 
 class ScriptProvisioner(object):
@@ -23,12 +25,20 @@ class ScriptProvisioner(object):
         self.shell = shell
         self.directory = None
 
+        try:
+            self.logger = current_app.logger
+        except RuntimeError:  # Outside of application context
+            self.logger = logging.getLogger("{}-provisioner".format(self.name))
+            self.logger.setLevel(logging.DEBUG)
+
     def __call__(self, directory=None, shell=None, **kwargs):
         """
         Creates a Popen process and assigns it to self.process
         :param directory: Directory to cd into
         :param shell: kwarg passed to subprocess.Popen
         """
+        self.logger.debug('Running subprocess')
+
         if directory is None:
             directory = self.directory or '.'
 
@@ -52,14 +62,16 @@ class PostgresProvisioner(ScriptProvisioner):
     # TODO: This should be based on what templates are discoverable, not
     # hard coded!
     _KNOWN_SERVICES = ['adsws', 'metrics', 'biblib', 'graphics', 'recommender']
+    name = 'postgres'
 
-    def __init__(self, services):
+    def __init__(self, services, **kwargs):
         """
         :param services: iterable of services to provision. Provisioning
             happens in the same order as they are defined
         """
+        super(PostgresProvisioner, self).__init__(scripts=None, shell=True)
+
         self.processes = OrderedDict()
-        self.shell = True
         services = [services] if isinstance(services, basestring) else services
         if set(services).difference(self._KNOWN_SERVICES):
             raise UnknownServiceError(
@@ -74,7 +86,11 @@ class PostgresProvisioner(ScriptProvisioner):
             self.services[s] = template.render(
                 database=s,
                 user=s,
-                psql_args=PostgresProvisioner.get_cli_params()
+                psql_args='--username postgres --port {} --host {}'
+                .format(
+                    kwargs['container'].running_port,
+                    kwargs['container'].running_host
+                )
             )
         self.scripts = self.services.values()
 
@@ -106,11 +122,12 @@ class ConsulProvisioner(ScriptProvisioner):
 
     name = 'consul'
 
-    def __init__(self, services):
+    def __init__(self, services, **kwargs):
+
+        super(ConsulProvisioner, self).__init__(scripts=None, shell=True)
 
         self._KNOWN_SERVICES = self.known_services()
         self.processes = OrderedDict()
-        self.shell = True
 
         services = [services] if isinstance(services, basestring) else services
         if set(services).difference(self._KNOWN_SERVICES):
@@ -125,7 +142,7 @@ class ConsulProvisioner(ScriptProvisioner):
         for s in services:
             self.services[s] = template.render(
                 service=s,
-                port=ConsulProvisioner.get_cli_params(),
+                port=kwargs['container'].running_port,
                 db_host=ConsulProvisioner.get_db_params()['HOST'],
                 db_port=ConsulProvisioner.get_db_params()['PORT']
             )
