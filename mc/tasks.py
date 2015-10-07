@@ -49,6 +49,21 @@ def update_service(cluster, service, desiredCount, taskDefinition):
         taskDefinition=taskDefinition
     )
 
+@celery.task()
+def run_task(cluster, desiredCount, taskDefinition):
+    """
+    Thin wrapper around boto3 ecs.update_service;
+    # http://boto3.readthedocs.org/en/latest/reference/services/ecs.html#ECS.Client.run_task
+    :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that your service is running on. If you do not specify a cluster, the default cluster is assumed.
+    :param desiredCount: The number of instantiations of the task that you would like to place and keep running in your service.
+    :param taskDefinition: The family and revision (family:revision ) or full Amazon Resource Name (ARN) of the task definition that you want to run in your service. If a revision is not specified, the latest ACTIVE revision is used. If you modify the task definition with UpdateService , Amazon ECS spawns a task with the new version of the task definition and then stops an old task after the new version is running.
+    """
+    client = get_boto_session().client('ecs')
+    client.run_task(
+        cluster=cluster,
+        desiredCount=desiredCount,
+        taskDefinition=taskDefinition
+    )
 
 @celery.task()
 def make_test_environment(test_id, config=None):
