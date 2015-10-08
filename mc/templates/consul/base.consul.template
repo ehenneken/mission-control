@@ -16,7 +16,7 @@ with open('{{service}}/{{service}}.config.json') as json_file:
     config = json.load(json_file)
 
 # Connect to consul
-consul = consulate.Consul(port={{port}})
+consul = consulate.Consul(host='0.0.0.0', port={{port}})
 
 # Load key/values from the configuration into the consul key/value store
 for key, value in config.iteritems():

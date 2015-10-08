@@ -7,12 +7,13 @@ from docker import Client
 from docker.utils import create_host_config
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine
+from redis import Redis, ConnectionError
 
 import os
-import logging
-import tarfile
 import io
 import mc.config as config
+import logging
+import tarfile
 import requests
 
 
@@ -371,6 +372,8 @@ class DockerRunner(object):
             self.logger.info('Docker container {} running'.format(self.image))
             self.running_properties = running_properties
 
+            print running_properties
+
             if self.service_name:
                 running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
 
@@ -387,6 +390,77 @@ class DockerRunner(object):
         if hasattr(self, 'service_provisioner'):
             provisioner = self.service_provisioner(services=services, container=self)
             provisioner()
+
+
+class RedisDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
+
+    service_name = 'redis'
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        name = self.service_name if not name else name
+
+        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('port_bindings', {6379: None})
+
+        super(RedisDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+        if not self.running:
+            return False
+
+        try:
+            rs = Redis(host=self.running_host, port=self.running_port)
+            rs.client_list()
+            return True
+        except ConnectionError:
+            return False
+        except Exception as error:
+            self.logger.error('Unexpected error: {}'.format(error))
+
+
+class GunicornDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
+
+    service_name = 'gunicorn'
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        kwargs.setdefault('port_bindings', {80: None})
+        super(GunicornDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+        if not self.running:
+            return False
+
+        try:
+            response = requests.get(
+                'http://{host}:{port}/'.format(
+                    host=self.running_host,
+                    port=self.running_port
+                )
+            )
+        except requests.ConnectionError:
+            return False
+
+        if response.status_code == 200:
+            return True
+        else:
+            return False
 
 
 class ConsulDockerRunner(DockerRunner):
@@ -485,6 +559,8 @@ def docker_runner_factory(image):
     """
 
     mapping = {
+        'gunicorn': GunicornDockerRunner,
+        'redis': RedisDockerRunner,
         'consul': ConsulDockerRunner,
         'postgres': PostgresDockerRunner
     }

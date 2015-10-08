@@ -64,7 +64,13 @@ def start_test_environment(test_id='livetest', config={}):
     :return: None
     """
 
-    services = ['adsws']
+    services = config.setdefault('services', [
+            {
+                'name': 'adsws',
+                'repository': 'adsabs',
+                'tag': '0596971c755855ff3f9caed2f96af7f9d5792cc2'
+            }
+        ])
 
     dependencies = config.setdefault('dependencies', [
         {
@@ -87,7 +93,19 @@ def start_test_environment(test_id='livetest', config={}):
             name="{}-{}".format(d['name'], test_id),
         )
         builder.start()
-        builder.provision(services=services)
+        builder.provision(services=[s['name'].replace('-service', '') for s in services])
+
+    for s in services:
+        image = '{repository}/{service}:{tag}'.format(
+            repository=s['repository'],
+            service=s['name'],
+            tag=s['tag']
+        )
+        builder = docker_runner_factory('gunicorn')(
+            image=image,
+            name='{}-{}'.format(s['name'], test_id)
+        )
+        builder.start()
 
 
 @celery.task()

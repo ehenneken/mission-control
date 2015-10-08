@@ -18,6 +18,7 @@ class ScriptProvisioner(object):
     Calls a script via subprocess.Popen
     """
     template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    name = 'provisioner'
 
     def __init__(self, scripts, shell=False):
         self.scripts = scripts
@@ -73,6 +74,7 @@ class PostgresProvisioner(ScriptProvisioner):
 
         self.processes = OrderedDict()
         services = [services] if isinstance(services, basestring) else services
+
         if set(services).difference(self._KNOWN_SERVICES):
             raise UnknownServiceError(
                 "{}".format(

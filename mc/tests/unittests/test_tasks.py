@@ -10,52 +10,96 @@ from mc.tasks import register_task_revision, build_docker, update_service, \
 import datetime
 
 
-class TestStartTestEnvironment(TestCase):
+class TestTestEnvironment(TestCase):
     """
     Test the start_test_environment task
     """
     def create_app(self):
         return app.create_app()
 
-    @patch('mc.tasks.PostgresProvisioner')
-    @patch('mc.tasks.ConsulProvisioner')
+    @patch('mc.builders.GunicornDockerRunner')
     @patch('mc.builders.PostgresDockerRunner')
     @patch('mc.builders.ConsulDockerRunner')
-    @patch('mc.builders.DockerRunner')
+    @patch('mc.builders.RedisDockerRunner')
     def test_containers_are_built(self,
-                                  mocked_docker_runner,
+                                  mocked_redis_runner,
                                   mocked_consul_runner,
                                   mocked_postgres_runner,
-                                  mocked_consul_provisioner,
-                                  mocked_postgres_provisioner
+                                  mocked_gunicorn_runner
                                   ):
         """
         Tests that the containers relevant for the test environment are started
         """
-        mocked_consul_provisioner.return_value = 'provision_consul'
-        mocked_postgres_provisioner.return_value = 'provision_postgres'
 
-        instance_docker_runner = mocked_docker_runner.return_value
-        instance_docker_runner.start.return_value = None
+        config = {}
+        services = config.setdefault('services', [
+                {
+                    'name': 'adsws',
+                    'repository': 'adsabs',
+                    'tag': '0596971c755855ff3f9caed2f96af7f9d5792cc2'
+                }
+            ])
+
+        dependencies = config.setdefault('dependencies', [
+            {
+                "name": "redis",
+                "image": "redis:2.8.9",
+            },
+            {
+                "name": "consul",
+                "image": "adsabs/consul:v1.0.0",
+            },
+            {
+                "name": "postgres",
+                "image": "postgres:9.3",
+            },
+        ])
+
+        instance_gunicorn_runner = mocked_gunicorn_runner.return_value
+        instance_gunicorn_runner.start.return_value = None
+        instance_gunicorn_runner.provision.return_value = None
+
+        instance_redis_runner = mocked_redis_runner.return_value
+        instance_redis_runner.start.return_value = None
+        instance_redis_runner.provision.return_value = None
 
         instance_consul_runner = mocked_consul_runner.return_value
         instance_consul_runner.start.return_value = None
+        instance_consul_runner.provision.return_value = None
 
         instance_postgres_runner = mocked_postgres_runner.return_value
         instance_postgres_runner.start.return_value = None
+        instance_postgres_runner.provision.return_value = None
 
-        start_test_environment(test_id=None)
+        start_test_environment(test_id=None, config=config)
 
-        instance_docker_runner.start.assert_has_calls(
-            [call(callback=None)]
+        self.assertTrue(instance_redis_runner.start.called)
+        self.assertTrue(instance_consul_runner.start.called)
+        self.assertTrue(instance_postgres_runner.start.called)
+        self.assertTrue(instance_gunicorn_runner.start.called)
+
+        instance_redis_runner.provision.has_calls(
+            [call(callback=s['name']) for s in services]
         )
-        instance_consul_runner.start.assert_has_calls(
-            [call(callback='provision_consul')]
+        instance_consul_runner.provision.has_calls(
+            [call(callback=s['name']) for s in services]
         )
-        instance_postgres_runner.start.assert_has_calls(
-            [call(callback='provision_postgres')]
+        instance_postgres_runner.provision.has_calls(
+            [call(callback=s['name']) for s in services]
+        )
+        instance_gunicorn_runner.provision.has_calls(
+            [call(callback=s['name']) for s in services]
         )
 
+    def test_containers_are_stopped(self):
+        """
+        Test that we have the opportunity to stop containers based on an id
+        """
+
+        start_test_environment(test_id='test')
+        stop_test_environment(test_id='test')
+
+        self.fail('')
 
 class TestRegisterTaskDefinition(TestCase):
     """

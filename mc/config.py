@@ -36,7 +36,10 @@ DEPENDENCIES = {
     'REDIS': {
         'PORT': 6379,
         'IMAGE': 'redis:2.8.19'
-    }
+    },
+    'GUNICORN': {
+        'PORT': 80
+    },
 }
 
 MC_LOGGING = {

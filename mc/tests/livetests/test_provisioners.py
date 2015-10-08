@@ -61,17 +61,13 @@ class TestConsulProvisioner(unittest.TestCase):
         """
         Run the provision for a given service
         """
-        app = create_app()
-        app.config['DEPENDENCIES']['CONSUL']['PORT'] = self.port
-        with app.app_context():
-            ConsulProvisioner(service)()
+        ConsulProvisioner(service, container=self.builder)()
 
     def test_provisioning_adsws_service(self):
         """
         First run the provisioner and then we can check that some configuration
         values have been correctly set in the key/value store
         """
-
         self._provision('adsws')
 
         # Obtain what we expect to find
@@ -137,10 +133,8 @@ class TestPostgresProvisioner(unittest.TestCase):
         """
         # Modifying a live application's config is the most straightforward
         # way to connect to a non-default port for this test case
-        app = create_app()
-        app.config['DEPENDENCIES']['POSTGRES']['PORT'] = self.port
-        with app.app_context():
-            PostgresProvisioner(service)()
+
+        PostgresProvisioner(service, container=self.builder)()
 
     def test_provisioning_adsws(self):
         """

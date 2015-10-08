@@ -7,6 +7,7 @@ from mc.provisioners import ScriptProvisioner, PostgresProvisioner, \
     ConsulProvisioner
 from mc.exceptions import UnknownServiceError
 from mc.app import create_app
+from mock import Mock
 
 
 class TestScriptProvisioner(unittest.TestCase):
@@ -48,8 +49,10 @@ class TestPostgresProvisioner(unittest.TestCase):
         key,value = service, template
         the attribute directory should point to the base template directory
         """
-        services = ["adsws", "metrics", "biblib"]
-        P = PostgresProvisioner(services)
+        container = Mock(port=5437, host='localhost')
+        services = ['adsws', 'metrics', 'biblib']
+
+        P = PostgresProvisioner(services, container=container)
         self.assertIsInstance(P.services, dict)
         self.assertListEqual(services, P.services.keys())
         for s in services:
@@ -94,9 +97,10 @@ class TestConsulProvisioner(unittest.TestCase):
         """
         Provisioner should auto-discover which services it knows about.
         """
-        known_services = ['adsws']
+        known_services = ['adsws', 'biblib']
         discovered_services = ConsulProvisioner.known_services()
-        self.assertEqual(known_services, discovered_services)
+        for item in known_services:
+            self.assertIn(item, discovered_services)
 
     def test_templates(self):
         """
@@ -105,8 +109,11 @@ class TestConsulProvisioner(unittest.TestCase):
         key,value = service, template
         the attribute directory should point to the base template directory
         """
+
         services = ['adsws']
-        P = ConsulProvisioner(services)
+        container = Mock(running_port=8500, running_host='localhost')
+
+        P = ConsulProvisioner(services, container=container)
         self.assertIsInstance(P.services, dict)
         self.assertListEqual(services, P.services.keys())
         for s in services:
