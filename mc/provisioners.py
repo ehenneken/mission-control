@@ -10,6 +10,7 @@ from mc.app import create_jinja2, create_app
 from mc.utils import ChangeDir
 from mc.exceptions import UnknownServiceError
 from flask import current_app
+from docker import Client
 from collections import OrderedDict
 
 
@@ -193,3 +194,63 @@ class ConsulProvisioner(ScriptProvisioner):
             config = create_app().config
 
         return config['DEPENDENCIES']['POSTGRES']
+
+
+class TestProvisioner(ScriptProvisioner):
+    """
+    Provision the consul cluster key-value store
+    """
+
+    name = 'testenv'
+
+    def __init__(self, services=['adsrex'], **kwargs):
+        super(TestProvisioner, self).__init__(scripts=None, shell=True)
+
+        self.api_name = kwargs.get('api_name', 'adsws')
+        self.api_port = kwargs.get('api_port', 80)
+
+        self.services = OrderedDict()
+        self.directories = OrderedDict()
+        self.configs = OrderedDict()
+        engine = create_jinja2()
+
+        for s in services:
+
+            template = engine.get_template('{}/base.{}.template'.format(self.name, s))
+            self.directories[s] = os.path.dirname(template.filename)
+
+            self.configs[s] = self.get_properties(s)
+            self.services[s] = template.render(**self.configs.get(s, {}))
+
+        self.scripts = self.services.values()
+
+    def get_properties(self, service, **kwargs):
+        """
+        Wrapper factor to return the config of the service
+        :param service: name of service
+        :type service: str
+
+        :return: dict
+        """
+        factory = {
+            'adsrex': self.get_properties_adsrex,
+        }
+        return factory.get(service, lambda: {})(**kwargs)
+
+    def get_properties_adsrex(self):
+        """
+        Get the properties relevant for the adsrex tests
+        :return: properties for adsrex, dictionary
+        """
+        docker = Client(version='auto')
+        api = [i['Id'] for i in docker.containers() if [j for j in i['Names'] if self.api_name in j]][0]
+        print docker.containers()
+        print api, self.api_port
+        api_info = docker.port(api, self.api_port)[0]
+
+        properties = dict(
+            api_port=api_info['HostPort'],
+            api_host=api_info['HostIp']
+        )
+
+        return properties

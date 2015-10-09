@@ -5,15 +5,16 @@ Test builders
 import redis
 import unittest
 
+from mc.tasks import start_test_environment, stop_test_environment, run_test_in_environment
 from mc.config import DEPENDENCIES
-from mc.tasks import start_test_environment
+from mc.builders import GunicornDockerRunner
 from docker import Client
 from consulate import Consul
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
 
 
-class TestStartTestEnvironment(unittest.TestCase):
+class TestTestEnvironment(unittest.TestCase):
     """
     Test the docker runner
     """
@@ -55,11 +56,21 @@ class TestStartTestEnvironment(unittest.TestCase):
         """
 
         # stop the services
-        for d in self.config['dependencies']:
-            self.helper_stop_container(d['name'])
+        try:
+            for d in self.config['dependencies']:
+                self.helper_stop_container(d['name'])
+        except:
+            pass
+        try:
+            for s in self.config['services']:
+                self.helper_stop_container(s['name'])
+        except:
+            pass
 
-        for s in self.config['services']:
-            self.helper_stop_container(s['name'])
+        try:
+            self.helper_stop_container('pythonsimpleserver')
+        except:
+            pass
 
     @staticmethod
     def helper_get_container_values(name, port):
@@ -134,3 +145,41 @@ class TestStartTestEnvironment(unittest.TestCase):
             engine.connect()
         except OperationalError as e:
             self.fail('Postgresql database has not started: {}'.format(e))
+
+    def test_stop_test_environment_task(self):
+        """
+        Test that stop task stops a running test environment
+        """
+
+        test_id = '34fe32fdsfdsxxx'
+
+        docker = Client(version='auto')
+        container = docker.create_container(
+            image='adsabs/pythonsimpleserver:v1.0.0',
+            name='livetest-pythonserver-{}'.format(test_id),
+        )
+        docker.start(container=container['Id'])
+
+        stop_test_environment(test_id=test_id)
+
+        self.assertFalse([i for i in docker.containers() if [j for j in i['Names'] if test_id in j]])
+
+    def test_run_test_environment_task(self):
+        """
+        Test that we can start tests in the test environment
+        """
+        test_id = '34fef34fsdf'
+
+        name = 'livetest-pythonserver-{}'.format(test_id)
+
+        container = GunicornDockerRunner(
+            name=name,
+            image='adsabs/pythonsimpleserver:v1.0.0'
+        )
+        container.start()
+
+        run_test_in_environment(
+            test_id=test_id,
+            test_services=['adsrex'],
+            api_name=name
+        )

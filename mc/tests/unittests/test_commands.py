@@ -27,9 +27,32 @@ class TestManageTestCluster(TestCase):
         Test starting the cluster
         """
         ManageTestCluster().run(
-            command='start'
+            command='start',
+            test_id=None
         )
-        mocked.assert_called_with()
+        mocked.assert_called_with(test_id=None)
+
+    @mock.patch('mc.manage.stop_test_environment')
+    def test_stop_request(self, mocked):
+        """
+        Test starting the cluster
+        """
+        ManageTestCluster().run(
+            command='stop',
+            test_id=None
+        )
+        mocked.assert_called_with(test_id=None)
+
+    @mock.patch('mc.manage.run_test_in_environment')
+    def test_stop_request(self, mocked):
+        """
+        Test starting the cluster
+        """
+        ManageTestCluster().run(
+            command='run',
+            test_id=None
+        )
+        mocked.assert_called_with(test_id=None)
 
 
 class TestRegisterTaskRevision(TestCase):

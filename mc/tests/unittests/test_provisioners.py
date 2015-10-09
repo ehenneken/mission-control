@@ -3,11 +3,12 @@ Test provisioners.py
 """
 import unittest
 from flask import current_app
+from mc.builders import GunicornDockerRunner
 from mc.provisioners import ScriptProvisioner, PostgresProvisioner, \
-    ConsulProvisioner
+    ConsulProvisioner, TestProvisioner
 from mc.exceptions import UnknownServiceError
 from mc.app import create_app
-from mock import Mock
+from mock import Mock, patch
 
 
 class TestScriptProvisioner(unittest.TestCase):
@@ -162,3 +163,83 @@ class TestConsulProvisioner(unittest.TestCase):
             with self.assertRaises(KeyError):
                 del current_app.config['DEPENDENCIES']['POSTGRES']
                 ConsulProvisioner.get_db_params()
+
+
+class TestTestProvisioner(unittest.TestCase):
+    """
+    Test that the tests are provisioned correctly
+    """
+    @patch('mc.provisioners.Client')
+    def test_get_config_for_adsrex(self, mocked):
+        """
+        Tests how it gets the relevant config variables
+        """
+        instance = mocked.return_value
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-adsws-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 80, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+
+        test_provisioner = TestProvisioner()
+        params = test_provisioner.get_properties_adsrex()
+        self.assertEqual(params['api_port'], 1234)
+        self.assertEqual(params['api_host'], '127.0.0.1')
+
+    @patch('mc.provisioners.Client')
+    def test_templates(self, mocked):
+        """
+        Test that the templates are rendered after init on a known service;
+        The attribute self.services should be a dict with
+        key,value = service, template
+        the attribute directory should point to the base template directory
+        """
+        instance = mocked.return_value
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-adsws-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 80, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+
+        config = {
+            'adsrex': {
+                'api': 'http://127.0.0.1:1234'
+            }
+        }
+        services = ['adsrex']
+
+        P = TestProvisioner(services=services)
+        self.assertIsInstance(P.services, dict)
+        self.assertListEqual(services, P.services.keys())
+
+        for s in services:
+            self.assertIsInstance(P.services[s], basestring)
+
+            for item in config[s].values():
+                self.assertIn(
+                    item,
+                    P.services[s],
+                    msg='{} not in {}'.format(item, P.services[s])
+                )
+
+            ends_with = 'templates/testenv'
+            self.assertTrue(
+                P.directories[s].endswith(ends_with),
+                msg='{} does not endwith {}'.format(P.directories[s], ends_with)
+            )

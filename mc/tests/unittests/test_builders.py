@@ -14,7 +14,8 @@ import requests
 
 from sqlalchemy.exc import OperationalError
 from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder, \
-    ConsulDockerRunner, PostgresDockerRunner, RedisDockerRunner, GunicornDockerRunner
+    ConsulDockerRunner, PostgresDockerRunner, RedisDockerRunner, \
+    GunicornDockerRunner, TestRunner
 from mc.models import Commit, Build
 from mc.exceptions import BuildError
 from httmock import all_requests, HTTMock
@@ -474,3 +475,26 @@ class TestGunicornDockerRunner(unittest.TestCase):
             self.builder.provision(services=['adsaws'])
         except Exception as e:
             self.fail('Provisioning failed: {}'.format(e))
+
+
+class TestTestRunner(unittest.TestCase):
+    """
+    Test the test runner
+    """
+
+    def setUp(self):
+        """
+        Generic setup for the tests
+        """
+        self.test_runner = TestRunner(test_id='livetest', test_services=['adsrex'])
+
+    @mock.patch('mc.builders.TestRunner.service_provisioner')
+    def test_can_start_test(self, mocked):
+        """
+        Tests that the test runner can start the tests
+        """
+        instance = mocked
+
+        self.test_runner.start()
+
+        instance.assert_called_with(services=['adsrex'])

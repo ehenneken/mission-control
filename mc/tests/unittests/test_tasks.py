@@ -6,7 +6,7 @@ from mock import patch, call, Mock
 from mc import app
 from mc.models import db, Commit, Build
 from mc.tasks import register_task_revision, build_docker, update_service, \
-    start_test_environment
+    start_test_environment, stop_test_environment, run_test_in_environment
 import datetime
 
 
@@ -91,15 +91,46 @@ class TestTestEnvironment(TestCase):
             [call(callback=s['name']) for s in services]
         )
 
-    def test_containers_are_stopped(self):
+    @patch('mc.tasks.Client')
+    def test_containers_are_stopped(self, mocked):
         """
         Test that we have the opportunity to stop containers based on an id
         """
+        instance = mocked.return_value
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        instance.stop.return_value = None
 
-        start_test_environment(test_id='test')
-        stop_test_environment(test_id='test')
+        stop_test_environment(test_id='livetest')
 
-        self.fail('')
+        instance.stop.assert_has_calls([
+            call(u'mocked')
+        ])
+
+    @patch('mc.tasks.TestRunner.service_provisioner')
+    def test_can_start_tests_that_run_in_environment(self, mocked):
+        """
+        Test that we can start running the tests in the environment
+        """
+        instance = mocked.return_value
+
+        run_test_in_environment(test_id='livetest')
+
+        # Check provisioned
+        instance.assert_has_calls([
+            call(),
+        ])
+
 
 class TestRegisterTaskDefinition(TestCase):
     """

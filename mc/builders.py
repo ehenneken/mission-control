@@ -1,7 +1,7 @@
 from mc.app import create_jinja2
 from mc.utils import timed
 from mc.exceptions import BuildError, TimeOutError
-from mc.provisioners import ConsulProvisioner, PostgresProvisioner
+from mc.provisioners import ConsulProvisioner, PostgresProvisioner, TestProvisioner
 from flask import current_app
 from docker import Client
 from docker.utils import create_host_config
@@ -570,3 +570,32 @@ def docker_runner_factory(image):
             return mapping[key]
 
     return DockerRunner
+
+
+class TestRunner(object):
+    """
+    Class to run generic scripts against a test cluster
+    """
+
+    service_provisioner = TestProvisioner
+
+    def __init__(self, test_id, test_services, **kwargs):
+        """
+        Constructor
+        :param test_id: Unique identifier of test environment
+        :type test_id: basestring
+
+        :param test_services: list of tests to run and provision
+        :type test_services: basestring
+        """
+        self.test_id = test_id
+        self.test_services = test_services
+        self.kwargs = kwargs
+
+    def start(self):
+        """
+        Starts the tests
+        """
+        test_provision = self.service_provisioner(
+            services=self.test_services, **self.kwargs)
+        test_provision()

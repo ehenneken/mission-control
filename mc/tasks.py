@@ -7,9 +7,9 @@ import json
 
 from mc.app import create_celery
 from mc.models import db, Build, Commit
-from mc.builders import DockerImageBuilder, DockerRunner, docker_runner_factory
+from mc.builders import DockerImageBuilder, DockerRunner, docker_runner_factory, TestRunner
 from mc.utils import get_boto_session
-from mc.provisioners import PostgresProvisioner, ConsulProvisioner
+from docker import Client
 
 celery = create_celery()
 
@@ -109,6 +109,35 @@ def start_test_environment(test_id='livetest', config={}):
 
 
 @celery.task()
+def stop_test_environment(test_id=None):
+    """
+    Stop a running test environment based on its unique id
+    :param test_id: unique identifier
+    :type test_id: basestring
+    """
+
+    docker = Client(version='auto')
+    containers = [i['Id'] for i in docker.containers() if [j for j in i['Names'] if test_id in j]]
+
+    for container in containers:
+        docker.stop(container)
+
+
+@celery.task()
+def run_test_in_environment(test_id=None, test_services=['adsrex'], **kwargs):
+    """
+    Run a suite of tests within the test environment
+    :param test_id: unique identifier
+    :type test_id: basestring
+
+    :param test_services: which tests to run
+    :type test_services: basestring
+    """
+    tests = TestRunner(test_id=test_id, test_services=test_services, **kwargs)
+    tests.start()
+
+
+@celery.task()
 def build_docker(commit_id):
     """
     Task responsible for building a docker image from a commit, and pushing
@@ -148,8 +177,3 @@ def build_docker(commit_id):
     db.session.add(build)
     db.session.commit()
 
-
-@celery.task()
-def stop_test_environment():
-    """Doc"""
-    pass

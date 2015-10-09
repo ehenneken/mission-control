@@ -1,9 +1,9 @@
 """
 Test provisioners.py
 """
-from mc.provisioners import PostgresProvisioner, ConsulProvisioner
-from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner
-from mc.app import create_app
+from mc.provisioners import PostgresProvisioner, ConsulProvisioner, TestProvisioner
+from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner, \
+    GunicornDockerRunner
 from werkzeug.security import gen_salt
 from sqlalchemy import create_engine
 
@@ -173,3 +173,45 @@ class TestPostgresProvisioner(unittest.TestCase):
         self.assertGreater(len(coreads), 0)
         self.assertGreater(len(clusters), 0)
         self.assertGreater(len(clustering), 0)
+
+
+class TestTestProvisioner(unittest.TestCase):
+    """
+    Test the provisioning of the test cluster script
+    """
+
+    def setUp(self):
+        """
+        Setup the tests
+        """
+        self.name = 'livetest-adsws-pythonsimpleserver-{}'.format(gen_salt(5))
+        self.builder = GunicornDockerRunner(
+            image='adsabs/pythonsimpleserver:v1.0.0',
+            name=self.name,
+        )
+        self.builder.start()
+        info = self.builder.client.port(
+            self.builder.container['Id'],
+            80
+        )[0]
+        self.host = info['HostIp']
+        self.port = info['HostPort']
+
+    def tearDown(self):
+        """
+        Teardown the tests
+        """
+        self.builder.teardown()
+
+    def test_that_the_script_file_is_provisioned(self):
+        """
+        Tests that the script file is provisioned as we expect it to be
+        """
+        test_provisioner = TestProvisioner(services=['adsrex'])
+
+        api_url = 'API_URL="http://{host}:{port}"'.format(
+            host=self.host,
+            port=self.port
+        )
+        self.assertIn(api_url, test_provisioner.scripts[0])
+
