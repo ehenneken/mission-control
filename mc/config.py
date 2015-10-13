@@ -27,10 +27,19 @@ DEPENDENCIES = {
         'USERNAME': 'postgres',
         'PORT': 5432,
         'HOST': 'localhost',
+        'IMAGE': 'postgres:9.3'
     },
     'CONSUL': {
-        'PORT': 8500
-    }
+        'PORT': 8500,
+        'IMAGE': 'adsabs/consul:v1.0.0'
+    },
+    'REDIS': {
+        'PORT': 6379,
+        'IMAGE': 'redis:2.8.19'
+    },
+    'GUNICORN': {
+        'PORT': 80
+    },
 }
 
 MC_LOGGING = {

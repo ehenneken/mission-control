@@ -14,7 +14,8 @@ from flask.ext.migrate import Migrate, MigrateCommand
 from flask import current_app
 from mc.models import db, Build, Commit
 from mc.app import create_app
-from mc.tasks import build_docker, register_task_revision, update_service
+from mc.tasks import build_docker, register_task_revision, update_service, \
+    start_test_environment, stop_test_environment, run_test_in_environment
 from mc.builders import ECSBuilder
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
@@ -22,6 +23,30 @@ from sqlalchemy.orm.exc import NoResultFound
 app = create_app()
 migrate = Migrate(app, db)
 manager = Manager(app)
+
+
+class ManageTestCluster(Command):
+    """
+    Script to allow the management of the test cluster
+    """
+    option_list = (
+        Option('--command', '-c', dest='command', choices=['start', 'stop', 'run'], required=True),
+        Option('--id', '-i', dest='test_id', required=False, default=None),
+    )
+
+    def run(self, command, test_id):
+        """
+        Run command
+        :param command: command to pass to the cluster environment
+        :param test_id: test id of the environment
+        """
+
+        command_look_up = {
+            'start': start_test_environment,
+            'stop': stop_test_environment,
+            'run': run_test_in_environment
+        }
+        command_look_up[command](test_id=test_id)
 
 
 class CreateDatabase(Command):
@@ -197,7 +222,7 @@ class UpdateService(Command):
                            service=service,
                            desiredCount=desiredCount,
                            taskDefinition=taskDefinition,
-            )
+                           )
 
 
 manager.add_command('update_service', UpdateService)
@@ -206,6 +231,7 @@ manager.add_command('db', MigrateCommand)
 manager.add_command('createdb', CreateDatabase())
 manager.add_command('dockerbuild', BuildDockerImage)
 manager.add_command('print_task_def', MakeDockerrunTemplate)
+manager.add_command('test_cluster', ManageTestCluster)
 
 
 if __name__ == '__main__':

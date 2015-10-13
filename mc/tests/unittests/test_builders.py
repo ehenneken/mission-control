@@ -1,15 +1,58 @@
 """
 Test builders
 """
-import unittest
+
+import mc
 import io
 import mock
 import jinja2
 import json
+import redis
 import tarfile
-from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder
+import unittest
+import requests
+
+from sqlalchemy.exc import OperationalError
+from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder, \
+    ConsulDockerRunner, PostgresDockerRunner, RedisDockerRunner, \
+    GunicornDockerRunner, TestRunner
 from mc.models import Commit, Build
 from mc.exceptions import BuildError
+from httmock import all_requests, HTTMock
+
+
+@all_requests
+def response_500(url, request):
+    """
+    Return 500 for all requests
+    :param url: url
+    :param request: request class
+    :return: 500 response
+    """
+    return {'status_code': 500, 'content': 'Failed'}
+
+
+@all_requests
+def response_404(url, request):
+    """
+    Return 404 for all requests
+    :param url: url
+    :param request: request class
+    :return: 404 response
+    """
+    return {'status_code': 404, 'content': 'Not found'}
+
+
+@all_requests
+def response_200(url, request):
+    """
+    Return 200 for all requests
+    :param url: url
+    :param request: request class
+    :return: 200 response
+    """
+    return {'status_code': 200, 'content': 'success'}
+
 
 class TestECSbuilder(unittest.TestCase):
     """
@@ -107,7 +150,6 @@ class TestDockerImageBuilder(unittest.TestCase):
                 f = tf.getmember(fn)
                 self.assertEqual(f.mode, 0555)
 
-
     @mock.patch('mc.builders.Client')
     def test_docker_build(self, mocked):
         """
@@ -147,6 +189,18 @@ class TestDockerRunner(unittest.TestCase):
     def setUp(self, mocked):
         instance = mocked.return_value
         instance.create_container.return_value = {'Id': 'mocked'}
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
         self.instance = instance
         self.builder = DockerRunner(
             image='redis',
@@ -184,6 +238,263 @@ class TestDockerRunner(unittest.TestCase):
         """
         the teardown() method should be called with the correct container id
         """
+        self.builder.time_out = 0.1
         self.builder.teardown()
         self.instance.stop.assert_called_with(container='mocked')
         self.instance.remove_container.assert_called_with(container='mocked')
+
+    def test_running(self):
+        """
+        Tests if the docker container is running
+        """
+
+        self.instance.containers.return_value = []
+        self.assertFalse(self.builder.running)
+
+        self.instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.assertTrue(self.builder.running)
+
+    def test_can_provision(self):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        self.assertIsNone(self.builder.provision(services=['adsaws']))
+
+
+class TestConsulDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner
+    """
+
+    @mock.patch('mc.builders.Client')
+    def setUp(self, mocked):
+        instance = mocked.return_value
+        instance.create_container.return_value = {'Id': 'mocked'}
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.instance = instance
+        self.builder = ConsulDockerRunner(network_mode="host")
+
+    def test_ready(self):
+        """
+        Tests the health check of the service and makes sure it is ready
+        """
+        with HTTMock(response_404):
+            self.assertTrue(self.builder.ready)
+
+    def test_not_ready(self):
+        """
+        Tests the health check of the service and makes sure it is not ready
+        """
+        with HTTMock(response_500):
+            self.assertFalse(self.builder.ready)
+
+    @mock.patch('mc.builders.ConsulDockerRunner.service_provisioner')
+    def test_can_provision(self, mocked_consul_runner):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        self.builder.provision(services=['adsaws'])
+
+        mocked_consul_runner.assert_has_calls([
+            mock.call(services=['adsaws'], container=self.builder),
+            mock.call()()
+        ])
+
+
+class TestPostgresDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner
+    """
+
+    @mock.patch('mc.builders.Client')
+    def setUp(self, mocked):
+        instance = mocked.return_value
+        instance.create_container.return_value = {'Id': 'mocked'}
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.instance = instance
+        self.builder = PostgresDockerRunner(network_mode="host")
+
+    def test_ready(self):
+        """
+        Tests the health check of the service
+        """
+
+        with mock.patch('mc.builders.create_engine') as mocked:
+            engine_instance = mocked.return_value
+            engine_instance.connect.side_effect = OperationalError('', '', '', '')
+            self.assertFalse(self.builder.ready)
+
+        with mock.patch('mc.builders.create_engine') as mocked:
+            engine_instance = mocked.return_value
+            engine_instance.connect.return_value = ''
+            self.assertTrue(self.builder.ready)
+
+    @mock.patch('mc.builders.PostgresDockerRunner.service_provisioner')
+    def test_can_provision(self, mocked):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        self.builder.provision(services=['adsaws'])
+
+        mocked.assert_has_calls([
+            mock.call(container=self.builder, services=['adsaws']),
+            mock.call()()
+        ])
+
+
+class TestRedisDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner
+    """
+
+    @mock.patch('mc.builders.Client')
+    def setUp(self, mocked):
+        instance = mocked.return_value
+        instance.create_container.return_value = {'Id': 'mocked'}
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.instance = instance
+        self.builder = RedisDockerRunner(network_mode="host")
+
+    @mock.patch('mc.builders.Redis')
+    def test_ready(self, mocked):
+        """
+        Tests the health check of the service
+        """
+
+        instance = mocked.return_value
+
+        # Fail then pass
+        instance.client_list.side_effect = [redis.ConnectionError, None]
+
+        self.assertFalse(self.builder.ready)
+        self.assertTrue(self.builder.ready)
+
+    def test_can_provision(self):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        try:
+            self.builder.provision(services=['adsaws'])
+        except Exception as e:
+            self.fail('Provisioning failed: {}'.format(e))
+
+
+class TestGunicornDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner
+    """
+
+    @mock.patch('mc.builders.Client')
+    def setUp(self, mocked):
+        instance = mocked.return_value
+        instance.create_container.return_value = {'Id': 'mocked'}
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.instance = instance
+        self.builder = GunicornDockerRunner(network_mode="host")
+
+    def test_ready(self):
+        """
+        Tests the health check of the service
+        """
+
+        with mock.patch.object(mc.builders.requests,
+                               'get',
+                               side_effect=requests.ConnectionError):
+            self.assertFalse(self.builder.ready)
+
+        with HTTMock(response_500):
+            self.assertFalse(self.builder.ready)
+
+        with HTTMock(response_200):
+            self.assertTrue(self.builder.ready)
+
+    def test_can_provision(self):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        try:
+            self.builder.provision(services=['adsaws'])
+        except Exception as e:
+            self.fail('Provisioning failed: {}'.format(e))
+
+
+class TestTestRunner(unittest.TestCase):
+    """
+    Test the test runner
+    """
+
+    def setUp(self):
+        """
+        Generic setup for the tests
+        """
+        self.test_runner = TestRunner(test_id='livetest', test_services=['adsrex'])
+
+    @mock.patch('mc.builders.TestRunner.service_provisioner')
+    def test_can_start_test(self, mocked):
+        """
+        Tests that the test runner can start the tests
+        """
+        instance = mocked
+
+        self.test_runner.start()
+
+        instance.assert_called_with(services=['adsrex'])

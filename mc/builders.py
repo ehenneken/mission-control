@@ -1,12 +1,20 @@
+from mc.app import create_jinja2
+from mc.utils import timed
+from mc.exceptions import BuildError, TimeOutError
+from mc.provisioners import ConsulProvisioner, PostgresProvisioner, TestProvisioner
 from flask import current_app
 from docker import Client
 from docker.utils import create_host_config
-from mc.app import create_jinja2
-from mc.exceptions import BuildError
+from sqlalchemy.exc import OperationalError
+from sqlalchemy import create_engine
+from redis import Redis, ConnectionError
+
 import os
+import io
+import mc.config as config
 import logging
 import tarfile
-import io
+import requests
 
 
 class ECSBuilder(object):
@@ -247,6 +255,7 @@ class DockerRunner(object):
     Responsible for pulling a docker image, creating a container, running
     the container, then tearing down the container
     """
+    service_name = None
 
     def __init__(self, image, name, command=None, **kwargs):
         """
@@ -261,9 +270,13 @@ class DockerRunner(object):
         self.name = name
         self.command = command
         self.host_config = create_host_config(**kwargs)
+        self.running_properties = None
+        self.time_out = 30
+        self.pull = kwargs.get('pull', True)
+        self.running_port = None
+        self.running_host = None
 
         self.client = Client(version='auto')
-        self.running = None
         self.container = None
         try:
             self.logger = current_app.logger
@@ -275,10 +288,15 @@ class DockerRunner(object):
     def setup(self):
         """
         Pull the image and create a container with host_config
-        :return: None
         """
-        self.client.pull(self.image)
-        self.logger.debug("Pulled {}".format(self.image))
+
+        exists = [i for i in self.client.images() if self.image in i['RepoTags']]
+
+        # Only pull the image if we don't have it
+        if not exists or self.pull:
+            self.client.pull(self.image)
+            self.logger.debug("Pulled {}".format(self.image))
+
         self.container = self.client.create_container(
             image=self.image,
             host_config=self.host_config,
@@ -296,12 +314,20 @@ class DockerRunner(object):
             provisioning.
         :return: None
         """
+        self.logger.debug('Starting container {}'.format(self.image))
         response = self.client.start(container=self.container['Id'])
         if response:
             self.logger.warning(response)
 
+        self.logger.debug('Checking if {} service is ready'.format(self.name))
+        timed(lambda: self.running, time_out=30, exit_on=True)
+        timed(lambda: self.ready, time_out=30, exit_on=True)
+
+        self.logger.debug('Service {} is ready'.format(self.name))
         if callable(callback):
-            callback(self.container)
+            callback(container=self.container)
+
+        self.logger.debug('Startup of {} complete'.format(self.name))
 
     def teardown(self):
         """
@@ -316,10 +342,260 @@ class DockerRunner(object):
         if response:
             self.logger.warning(response)
 
+        try:
+            timed(lambda: self.running, time_out=self.time_out, exit_on=False)
+        except TimeOutError:
+            self.logger.warning(
+                'Container teardown timed out, may still be running {}'
+                .format(self.container)
+            )
+            print 'Timeout'
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+        return True
+
+    @property
+    def running(self):
+        """
+        Determine if the container started
+        :return: boolean
+        """
+        running_properties = [i for i in self.client.containers() if i['Id'] == self.container['Id']]
+
+        if len(running_properties) == 0 or 'Up' not in running_properties[0].get('Status', ''):
+            return False
+        else:
+            self.logger.info('Docker container {} running'.format(self.image))
+            self.running_properties = running_properties
+
+            print running_properties
+
+            if self.service_name:
+                running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
+
+                self.running_host = running[0]['HostIp']
+                self.running_port = running[0]['HostPort']
+
+            return True
+
+    def provision(self, services):
+        """
+        Run the provisioner of this class for a set of services
+        :param services: list of services
+        """
+        if hasattr(self, 'service_provisioner'):
+            provisioner = self.service_provisioner(services=services, container=self)
+            provisioner()
 
 
+class RedisDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
+
+    service_name = 'redis'
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        name = self.service_name if not name else name
+
+        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('port_bindings', {6379: None})
+
+        super(RedisDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+        if not self.running:
+            return False
+
+        try:
+            rs = Redis(host=self.running_host, port=self.running_port)
+            rs.client_list()
+            return True
+        except ConnectionError:
+            return False
+        except Exception as error:
+            self.logger.error('Unexpected error: {}'.format(error))
 
 
+class GunicornDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
+
+    service_name = 'gunicorn'
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        kwargs.setdefault('port_bindings', {80: None})
+        super(GunicornDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+        if not self.running:
+            return False
+
+        try:
+            response = requests.get(
+                'http://{host}:{port}/'.format(
+                    host=self.running_host,
+                    port=self.running_port
+                )
+            )
+        except requests.ConnectionError:
+            return False
+
+        if response.status_code == 200:
+            return True
+        else:
+            return False
 
 
+class ConsulDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
 
+    service_name = 'consul'
+    service_provisioner = ConsulProvisioner
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        name = self.service_name if not name else name
+        command = ['-server', '-bootstrap'] if not command else command
+
+        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('port_bindings', {8500: None})
+
+        super(ConsulDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+
+        if not self.running:
+            return False
+
+        try:
+            response = requests.get(
+                'http://{}:{}/v1/kv/health'.format(
+                    self.running_host,
+                    self.running_port
+                )
+            )
+        except requests.ConnectionError:
+            return False
+
+        if response.status_code == 404:
+            return True
+        elif response.status_code == 500:
+            return False
+        else:
+            return False
+
+
+class PostgresDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
+
+    service_name = 'postgres'
+    service_provisioner = PostgresProvisioner
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        name = self.service_name if not name else name
+
+        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('port_bindings', {5432: None})
+
+        super(PostgresDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        :return: boolean
+        """
+
+        postgres_uri = 'postgresql://postgres:@{host}:{port}'.format(
+            host=self.running_host,
+            port=self.running_port
+        )
+
+        try:
+            engine = create_engine(postgres_uri)
+            engine.connect()
+            return True
+        except OperationalError as e:
+            return False
+
+
+def docker_runner_factory(image):
+    """
+    Class factory for the docker runner. Returns a specific class for a specific
+    type of service.
+
+    :param image: full name of the docker image to pull
+    :type image: basestring
+
+    :return: relevant DockerRunner class
+    """
+
+    mapping = {
+        'gunicorn': GunicornDockerRunner,
+        'redis': RedisDockerRunner,
+        'consul': ConsulDockerRunner,
+        'postgres': PostgresDockerRunner
+    }
+
+    for key in mapping:
+        if key in image:
+            return mapping[key]
+
+    return DockerRunner
+
+
+class TestRunner(object):
+    """
+    Class to run generic scripts against a test cluster
+    """
+
+    service_provisioner = TestProvisioner
+
+    def __init__(self, test_id, test_services, **kwargs):
+        """
+        Constructor
+        :param test_id: Unique identifier of test environment
+        :type test_id: basestring
+
+        :param test_services: list of tests to run and provision
+        :type test_services: basestring
+        """
+        self.test_id = test_id
+        self.test_services = test_services
+        self.kwargs = kwargs
+
+    def start(self):
+        """
+        Starts the tests
+        """
+        test_provision = self.service_provisioner(
+            services=self.test_services, **self.kwargs)
+        test_provision()

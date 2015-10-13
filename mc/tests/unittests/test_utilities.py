@@ -7,16 +7,49 @@ import hmac
 import hashlib
 import json
 import datetime
+
 from dateutil.tz import tzoffset, tzlocal
 from mc import app
 from mc.views import GithubListener
-from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError
+from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError, \
+    TimeOutError
 from mc.tests.stubdata.github_webhook_payload import payload, payload_tag
 from mc.models import db, Commit
-from mc.utils import ChangeDir, get_boto_session
+from mc.utils import ChangeDir, get_boto_session, timed
 import mock
 
 from flask.ext.testing import TestCase
+
+
+class TestTimed(unittest.TestCase):
+    """
+    Test that the timed running of a function behaves correctly
+    """
+
+    def test_timed_sucess(self):
+        """
+        Test it returns if suceeds
+        """
+        func = lambda: True
+
+        response = timed(func)
+        self.assertIsNone(response)
+
+    def test_times_out(self):
+        """
+        Test it raises if it does not exceed
+        """
+        func = lambda: False
+        with self.assertRaises(TimeOutError):
+            timed(func, time_out=1)
+
+    def test_times_success_want_opposite_return_value(self):
+        """
+        Test it passes for a return value of False
+        """
+        func = lambda: False
+        response = timed(func, exit_on=False)
+        self.assertIsNone(response)
 
 
 class FakeRequest:

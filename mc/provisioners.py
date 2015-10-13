@@ -1,14 +1,17 @@
 """
 Provisioners live here
 """
-import subprocess
-from collections import OrderedDict
+
 import os
-from flask import current_app
+import logging
+import subprocess
 
 from mc.app import create_jinja2, create_app
 from mc.utils import ChangeDir
 from mc.exceptions import UnknownServiceError
+from flask import current_app
+from docker import Client
+from collections import OrderedDict
 
 
 class ScriptProvisioner(object):
@@ -16,6 +19,7 @@ class ScriptProvisioner(object):
     Calls a script via subprocess.Popen
     """
     template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    name = 'provisioner'
 
     def __init__(self, scripts, shell=False):
         self.scripts = scripts
@@ -23,12 +27,20 @@ class ScriptProvisioner(object):
         self.shell = shell
         self.directory = None
 
-    def __call__(self, directory=None, shell=None):
+        try:
+            self.logger = current_app.logger
+        except RuntimeError:  # Outside of application context
+            self.logger = logging.getLogger("{}-provisioner".format(self.name))
+            self.logger.setLevel(logging.DEBUG)
+
+    def __call__(self, directory=None, shell=None, **kwargs):
         """
         Creates a Popen process and assigns it to self.process
         :param directory: Directory to cd into
         :param shell: kwarg passed to subprocess.Popen
         """
+        self.logger.debug('Running subprocess')
+
         if directory is None:
             directory = self.directory or '.'
 
@@ -52,15 +64,18 @@ class PostgresProvisioner(ScriptProvisioner):
     # TODO: This should be based on what templates are discoverable, not
     # hard coded!
     _KNOWN_SERVICES = ['adsws', 'metrics', 'biblib', 'graphics', 'recommender']
+    name = 'postgres'
 
-    def __init__(self, services):
+    def __init__(self, services, **kwargs):
         """
         :param services: iterable of services to provision. Provisioning
             happens in the same order as they are defined
         """
+        super(PostgresProvisioner, self).__init__(scripts=None, shell=True)
+
         self.processes = OrderedDict()
-        self.shell = True
         services = [services] if isinstance(services, basestring) else services
+
         if set(services).difference(self._KNOWN_SERVICES):
             raise UnknownServiceError(
                 "{}".format(
@@ -74,7 +89,11 @@ class PostgresProvisioner(ScriptProvisioner):
             self.services[s] = template.render(
                 database=s,
                 user=s,
-                psql_args=PostgresProvisioner.get_cli_params()
+                psql_args='--username postgres --port {} --host {}'
+                .format(
+                    kwargs['container'].running_port,
+                    kwargs['container'].running_host
+                )
             )
         self.scripts = self.services.values()
 
@@ -106,11 +125,12 @@ class ConsulProvisioner(ScriptProvisioner):
 
     name = 'consul'
 
-    def __init__(self, services):
+    def __init__(self, services, **kwargs):
+
+        super(ConsulProvisioner, self).__init__(scripts=None, shell=True)
 
         self._KNOWN_SERVICES = self.known_services()
         self.processes = OrderedDict()
-        self.shell = True
 
         services = [services] if isinstance(services, basestring) else services
         if set(services).difference(self._KNOWN_SERVICES):
@@ -125,7 +145,7 @@ class ConsulProvisioner(ScriptProvisioner):
         for s in services:
             self.services[s] = template.render(
                 service=s,
-                port=ConsulProvisioner.get_cli_params(),
+                port=kwargs['container'].running_port,
                 db_host=ConsulProvisioner.get_db_params()['HOST'],
                 db_port=ConsulProvisioner.get_db_params()['PORT']
             )
@@ -174,3 +194,63 @@ class ConsulProvisioner(ScriptProvisioner):
             config = create_app().config
 
         return config['DEPENDENCIES']['POSTGRES']
+
+
+class TestProvisioner(ScriptProvisioner):
+    """
+    Provision the consul cluster key-value store
+    """
+
+    name = 'testenv'
+
+    def __init__(self, services=['adsrex'], **kwargs):
+        super(TestProvisioner, self).__init__(scripts=None, shell=True)
+
+        self.api_name = kwargs.get('api_name', 'adsws')
+        self.api_port = kwargs.get('api_port', 80)
+
+        self.services = OrderedDict()
+        self.directories = OrderedDict()
+        self.configs = OrderedDict()
+        engine = create_jinja2()
+
+        for s in services:
+
+            template = engine.get_template('{}/base.{}.template'.format(self.name, s))
+            self.directories[s] = os.path.dirname(template.filename)
+
+            self.configs[s] = self.get_properties(s)
+            self.services[s] = template.render(**self.configs.get(s, {}))
+
+        self.scripts = self.services.values()
+
+    def get_properties(self, service, **kwargs):
+        """
+        Wrapper factor to return the config of the service
+        :param service: name of service
+        :type service: str
+
+        :return: dict
+        """
+        factory = {
+            'adsrex': self.get_properties_adsrex,
+        }
+        return factory.get(service, lambda: {})(**kwargs)
+
+    def get_properties_adsrex(self):
+        """
+        Get the properties relevant for the adsrex tests
+        :return: properties for adsrex, dictionary
+        """
+        docker = Client(version='auto')
+        api = [i['Id'] for i in docker.containers() if [j for j in i['Names'] if self.api_name in j]][0]
+        print docker.containers()
+        print api, self.api_port
+        api_info = docker.port(api, self.api_port)[0]
+
+        properties = dict(
+            api_port=api_info['HostPort'],
+            api_host=api_info['HostIp']
+        )
+
+        return properties

@@ -7,11 +7,12 @@ import json
 
 from mc.app import create_celery
 from mc.models import db, Build, Commit
-from mc.builders import DockerImageBuilder, DockerRunner
+from mc.builders import DockerImageBuilder, DockerRunner, docker_runner_factory, TestRunner
 from mc.utils import get_boto_session
-from mc.provisioners import PostgresProvisioner
+from docker import Client
 
 celery = create_celery()
+
 
 @celery.task()
 def register_task_revision(ecsbuild):
@@ -51,7 +52,7 @@ def update_service(cluster, service, desiredCount, taskDefinition):
 
 
 @celery.task()
-def make_test_environment(test_id, config=None):
+def start_test_environment(test_id='livetest', config={}):
     """
     Creates the test environment:
       - Run dependency containers
@@ -63,31 +64,77 @@ def make_test_environment(test_id, config=None):
     :return: None
     """
 
+    services = config.setdefault('services', [
+            {
+                'name': 'adsws',
+                'repository': 'adsabs',
+                'tag': '0596971c755855ff3f9caed2f96af7f9d5792cc2'
+            }
+        ])
+
     dependencies = config.setdefault('dependencies', [
         {
             "name": "redis",
-            "image": "redis",
-            "callback": None,
+            "image": "redis:2.8.9",
         },
         {
             "name": "consul",
-            "image": "consul",
-            "callback": provision_consol,
+            "image": "adsabs/consul:v1.0.0",
         },
         {
             "name": "postgres",
-            "image": "postgres",
-            "callback": provision_psql,
+            "image": "postgres:9.3",
         },
     ])
 
     for d in dependencies:
-        builder = DockerRunner(
+        builder = docker_runner_factory(image=d['image'])(
             image=d['image'],
             name="{}-{}".format(d['name'], test_id),
         )
-        builder.start(callback=d['callback'])
+        builder.start()
+        builder.provision(services=[s['name'].replace('-service', '') for s in services])
 
+    for s in services:
+        image = '{repository}/{service}:{tag}'.format(
+            repository=s['repository'],
+            service=s['name'],
+            tag=s['tag']
+        )
+        builder = docker_runner_factory('gunicorn')(
+            image=image,
+            name='{}-{}'.format(s['name'], test_id)
+        )
+        builder.start()
+
+
+@celery.task()
+def stop_test_environment(test_id=None):
+    """
+    Stop a running test environment based on its unique id
+    :param test_id: unique identifier
+    :type test_id: basestring
+    """
+
+    docker = Client(version='auto')
+    containers = [i['Id'] for i in docker.containers() if [j for j in i['Names'] if test_id in j]]
+
+    for container in containers:
+        docker.stop(container)
+
+
+@celery.task()
+def run_test_in_environment(test_id=None, test_services=['adsrex'], **kwargs):
+    """
+    Run a suite of tests within the test environment
+    :param test_id: unique identifier
+    :type test_id: basestring
+
+    :param test_services: which tests to run
+    :type test_services: basestring
+    """
+    tests = TestRunner(test_id=test_id, test_services=test_services, **kwargs)
+    tests.start()
 
 
 @celery.task()
@@ -129,3 +176,4 @@ def build_docker(commit_id):
     )
     db.session.add(build)
     db.session.commit()
+

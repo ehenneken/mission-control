@@ -1,13 +1,12 @@
 """
 Test provisioners.py
 """
-from mc.provisioners import PostgresProvisioner, ConsulProvisioner
-from mc.builders import DockerRunner
-from mc.app import create_app
-
+from mc.provisioners import PostgresProvisioner, ConsulProvisioner, TestProvisioner
+from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner, \
+    GunicornDockerRunner
 from werkzeug.security import gen_salt
 from sqlalchemy import create_engine
-import time
+
 import json
 import unittest
 import requests
@@ -25,12 +24,8 @@ class TestConsulProvisioner(unittest.TestCase):
         Starts a consul node for all the tests
         """
         self.name = 'livetest-consul-{}'.format(gen_salt(5))
-        self.builder = DockerRunner(
-            image='adsabs/consul:v1.0.0',
+        self.builder = ConsulDockerRunner(
             name=self.name,
-            mem_limit="50m",
-            port_bindings={8500: None},
-            command=['-server', '-bootstrap']
         )
 
         self.builder.start()
@@ -38,9 +33,6 @@ class TestConsulProvisioner(unittest.TestCase):
             self.builder.container['Id'],
             8500
         )[0]['HostPort']
-
-        # Let consul start
-        time.sleep(5)
 
     def tearDown(self):
         """
@@ -52,11 +44,16 @@ class TestConsulProvisioner(unittest.TestCase):
         """
         Checks that consul is started correctly via docker
         """
-        response = requests.get('http://localhost:{}'
-                                .format(self.port))
+
+        while True:
+            response = requests.get('http://localhost:{}/v1/kv/health'
+                                    .format(self.port))
+            if response.status_code == 404:
+                break
+
         self.assertEqual(
             response.status_code,
-            200,
+            404,
             msg='Consul service is non-responsive: {}'.format(response.text)
         )
 
@@ -64,17 +61,13 @@ class TestConsulProvisioner(unittest.TestCase):
         """
         Run the provision for a given service
         """
-        app = create_app()
-        app.config['DEPENDENCIES']['CONSUL']['PORT'] = self.port
-        with app.app_context():
-            ConsulProvisioner(service)()
+        ConsulProvisioner(service, container=self.builder)()
 
     def test_provisioning_adsws_service(self):
         """
         First run the provisioner and then we can check that some configuration
         values have been correctly set in the key/value store
         """
-
         self._provision('adsws')
 
         # Obtain what we expect to find
@@ -90,7 +83,15 @@ class TestConsulProvisioner(unittest.TestCase):
         consul = consulate.Consul(port=self.port)
         for key in config:
             self.assertIn(key, consul.kv.keys())
-            self.assertEqual(config[key], json.loads(consul.kv.get(key)))
+            self.assertEqual(
+                config[key],
+                consul.kv.get(key),
+                msg='Key {} mismatch: {} != {}'.format(
+                    key,
+                    config[key],
+                    consul.kv.get(key)
+                )
+            )
 
 
 class TestPostgresProvisioner(unittest.TestCase):
@@ -100,20 +101,14 @@ class TestPostgresProvisioner(unittest.TestCase):
 
     def setUp(self):
         self.name = 'livetest-postgres-{}'.format(gen_salt(5))
-        self.builder = DockerRunner(
-            image='postgres',
+        self.builder = PostgresDockerRunner(
             name=self.name,
-            mem_limit="50m",
-            port_bindings={5432: None},
         )
         self.builder.start()
         self.port = self.builder.client.port(
             self.builder.container['Id'],
             5432
         )[0]['HostPort']
-
-        # Give some seconds for postgres to warm up and become available
-        time.sleep(10)
 
     def tearDown(self):
         self.builder.teardown()
@@ -138,10 +133,8 @@ class TestPostgresProvisioner(unittest.TestCase):
         """
         # Modifying a live application's config is the most straightforward
         # way to connect to a non-default port for this test case
-        app = create_app()
-        app.config['DEPENDENCIES']['POSTGRES']['PORT'] = self.port
-        with app.app_context():
-            PostgresProvisioner(service)()
+
+        PostgresProvisioner(service, container=self.builder)()
 
     def test_provisioning_adsws(self):
         """
@@ -180,3 +173,45 @@ class TestPostgresProvisioner(unittest.TestCase):
         self.assertGreater(len(coreads), 0)
         self.assertGreater(len(clusters), 0)
         self.assertGreater(len(clustering), 0)
+
+
+class TestTestProvisioner(unittest.TestCase):
+    """
+    Test the provisioning of the test cluster script
+    """
+
+    def setUp(self):
+        """
+        Setup the tests
+        """
+        self.name = 'livetest-adsws-pythonsimpleserver-{}'.format(gen_salt(5))
+        self.builder = GunicornDockerRunner(
+            image='adsabs/pythonsimpleserver:v1.0.0',
+            name=self.name,
+        )
+        self.builder.start()
+        info = self.builder.client.port(
+            self.builder.container['Id'],
+            80
+        )[0]
+        self.host = info['HostIp']
+        self.port = info['HostPort']
+
+    def tearDown(self):
+        """
+        Teardown the tests
+        """
+        self.builder.teardown()
+
+    def test_that_the_script_file_is_provisioned(self):
+        """
+        Tests that the script file is provisioned as we expect it to be
+        """
+        test_provisioner = TestProvisioner(services=['adsrex'])
+
+        api_url = 'API_URL="http://{host}:{port}"'.format(
+            host=self.host,
+            port=self.port
+        )
+        self.assertIn(api_url, test_provisioner.scripts[0])
+
