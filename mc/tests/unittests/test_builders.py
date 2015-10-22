@@ -449,7 +449,27 @@ class TestGunicornDockerRunner(unittest.TestCase):
             }
         ]
         self.instance = instance
-        self.builder = GunicornDockerRunner(network_mode="host")
+        self.environment = dict(consul_host='localhost', consul_port=8500)
+        self.builder = GunicornDockerRunner(network_mode="host",
+                                            environment=self.environment)
+
+    def test_can_set_consul(self):
+        """
+        Tests that consul properties get passed correctly
+        """
+        expected_call = mock.call(
+            command=None,
+            image=None,
+            name=None,
+            environment={'consul_host': 'localhost', 'consul_port': 8500},
+            host_config={'PortBindings': {
+                '80/tcp': [{'HostPort': '', 'HostIp': ''}]
+            }, 'NetworkMode': 'host'}
+        )
+
+        self.instance.create_container.assert_has_calls(
+            [expected_call]
+        )
 
     def test_ready(self):
         """

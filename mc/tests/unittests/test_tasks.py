@@ -110,11 +110,16 @@ class TestTestEnvironment(TestCase):
             }
         ]
         instance.stop.return_value = None
+        instance.remove_container.return_value = None
 
         stop_test_environment(test_id='livetest')
 
         instance.stop.assert_has_calls([
-            call(u'mocked')
+            call(container=u'mocked')
+        ])
+
+        instance.remove_container.assert_has_calls([
+            call(container=u'mocked')
         ])
 
     @patch('mc.tasks.TestRunner.service_provisioner')

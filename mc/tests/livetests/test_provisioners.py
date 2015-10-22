@@ -4,6 +4,7 @@ Test provisioners.py
 from mc.provisioners import PostgresProvisioner, ConsulProvisioner, TestProvisioner
 from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner, \
     GunicornDockerRunner
+from jinja2 import Template
 from werkzeug.security import gen_salt
 from sqlalchemy import create_engine
 
@@ -77,11 +78,21 @@ class TestConsulProvisioner(unittest.TestCase):
         )
 
         with open(config_file) as json_file:
-            config = json.load(json_file)
+            template = Template(json_file.read())
+
+        json_config = template.render(
+            db_host='localhost',
+            db_port=5432,
+            cache_host='localhost',
+            cache_port=6379
+        )
+
+        config = json.loads(json_config)
 
         # Compare with consul
         consul = consulate.Consul(port=self.port)
         for key in config:
+
             self.assertIn(key, consul.kv.keys())
             self.assertEqual(
                 config[key],
@@ -92,6 +103,24 @@ class TestConsulProvisioner(unittest.TestCase):
                     consul.kv.get(key)
                 )
             )
+
+        cache = consul.kv.get('config/adsws/staging/CACHE')
+        self.assertIn(
+            'localhost',
+            cache,
+        )
+        self.assertIn(
+            '6379',
+            cache,
+        )
+
+        db_uri = consul.kv.get('config/adsws/staging/SQLALCHEMY_DATABASE_URI')
+        self.assertEqual(
+            db_uri,
+            '"postgresql+psycopg2://adsabs:@localhost:5432/adsws"',
+            msg='Provisioning is not working: {} != '
+                'postgresql+psycopg2://adsabs:@localhost:5432/adsws'.format(db_uri)
+        )
 
 
 class TestPostgresProvisioner(unittest.TestCase):

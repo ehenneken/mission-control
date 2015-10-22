@@ -16,3 +16,5 @@ consulate==0.6.0
 psycopg2==2.6.1
 redis==2.10.3
 httmock==1.2.3
+pytest==2.8.2
+requests==2.7.0

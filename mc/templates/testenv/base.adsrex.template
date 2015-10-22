@@ -1,2 +1,10 @@
+#!/bin/bash
+git clone https://github.com/jonnybazookatone/adsrex.git tmp_adsrex/
+
 API_URL="http://{{api_host}}:{{api_port}}"
-curl $API_URL
+echo "API_URL = '$API_URL'" > tmp_adsrex/v1_0/local_config.py
+
+/usr/local/bin/py.test tmp_adsrex/v1_0
+
+
+#rm -rf tmp_adsrex/

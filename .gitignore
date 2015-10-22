@@ -1,3 +1,4 @@
+.cache
 *pyc
 local_config.py
 .vagrant

@@ -257,11 +257,12 @@ class DockerRunner(object):
     """
     service_name = None
 
-    def __init__(self, image, name, command=None, **kwargs):
+    def __init__(self, image, name, command=None, environment=None, **kwargs):
         """
         :param image: full name of the docker image to pull
         :param name: name of the container in `docker run --name`
         :param command: command for the container in `docker run <> command`
+        :param enviroment: environment variables in the container
         :param mem_limit: Memory limit to enforce on the container
         :param kwargs: keyword args to pass direclty to
             docker.utils.create_host_config
@@ -269,6 +270,7 @@ class DockerRunner(object):
         self.image = image
         self.name = name
         self.command = command
+        self.environment = environment
         self.host_config = create_host_config(**kwargs)
         self.running_properties = None
         self.time_out = 30
@@ -301,7 +303,8 @@ class DockerRunner(object):
             image=self.image,
             host_config=self.host_config,
             name=self.name,
-            command=self.command
+            command=self.command,
+            environment=self.environment
         )
         self.logger.debug("Created container {}".format(self.container['Id']))
 
@@ -372,8 +375,6 @@ class DockerRunner(object):
             self.logger.info('Docker container {} running'.format(self.image))
             self.running_properties = running_properties
 
-            print running_properties
-
             if self.service_name:
                 running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
 
@@ -382,13 +383,15 @@ class DockerRunner(object):
 
             return True
 
-    def provision(self, services):
+    def provision(self, services, requirements=None):
         """
         Run the provisioner of this class for a set of services
         :param services: list of services
         """
         if hasattr(self, 'service_provisioner'):
-            provisioner = self.service_provisioner(services=services, container=self)
+            provisioner = self.service_provisioner(services=services,
+                                                   container=self,
+                                                   requirements=requirements)
             provisioner()
 
 
@@ -434,10 +437,23 @@ class GunicornDockerRunner(DockerRunner):
 
     service_name = 'gunicorn'
 
-    def __init__(self, image=None, name=None, command=None, **kwargs):
+    def __init__(self, image=None, name=None, command=None, environment=None, **kwargs):
+
+        gunicorn_environment = {
+            'CONSUL_HOST': '172.17.42.1',
+            'CONSUL_PORT': kwargs.get('consul_port', 8500),
+            'SERVICE': kwargs.get('service_name', 'generic_service'),
+            'ENVIRONMENT': kwargs.get('service_environment', 'staging')
+        }
 
         kwargs.setdefault('port_bindings', {80: None})
-        super(GunicornDockerRunner, self).__init__(image, name, command, **kwargs)
+        super(GunicornDockerRunner, self).__init__(
+            image,
+            name,
+            command,
+            environment=gunicorn_environment if not environment else environment,
+            **kwargs
+        )
 
     @property
     def ready(self):

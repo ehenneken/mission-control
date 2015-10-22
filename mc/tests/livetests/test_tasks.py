@@ -6,12 +6,12 @@ import redis
 import unittest
 
 from mc.tasks import start_test_environment, stop_test_environment, run_test_in_environment
-from mc.config import DEPENDENCIES
 from mc.builders import GunicornDockerRunner
 from docker import Client
 from consulate import Consul
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
+from collections import OrderedDict
 
 
 class TestTestEnvironment(unittest.TestCase):
@@ -23,32 +23,31 @@ class TestTestEnvironment(unittest.TestCase):
         """
         Define what we want to start
         """
-        self.config = {
-            'dependencies': [
-                {
-                    "name": "redis",
-                    "image": DEPENDENCIES['REDIS']['IMAGE'],
-                    "callback": None,
-                },
-                {
-                    "name": "consul",
-                    "image": DEPENDENCIES['CONSUL']['IMAGE'],
-                    "callback": None,
-                },
-                {
-                    "name": "postgres",
-                    "image": DEPENDENCIES['POSTGRES']['IMAGE'],
-                    "callback": None,
-                }
-            ],
-            'services': [
+        self.config = OrderedDict({})
+
+        services = self.config.setdefault('services', [
                 {
                     'name': 'adsws',
                     'repository': 'adsabs',
                     'tag': '0596971c755855ff3f9caed2f96af7f9d5792cc2'
                 }
-            ]
-        }
+            ])
+
+        dependencies = self.config.setdefault('dependencies', [
+            {
+                'name': 'redis',
+                'image': 'redis:2.8.21'
+            },
+            {
+                'name': 'postgres',
+                'image': 'postgres:9.3',
+            },
+            {
+                'name': 'consul',
+                'image': 'adsabs/consul:v1.0.0',
+                'requirements': ['redis', 'postgres']
+            },
+        ])
 
     def tearDown(self):
         """
@@ -126,14 +125,6 @@ class TestTestEnvironment(unittest.TestCase):
         except redis.ConnectionError as e:
             self.fail('Redis cache has not started: {}'.format(e))
 
-        # Check consul is running
-        consul_info = self.helper_get_container_values('consul', 8500)
-        session = Consul(host=consul_info['host'], port=consul_info['port'])
-        self.assertEqual(
-            session.kv.get('config/adsws/staging/DEBUG'),
-            "false"
-        )
-
         # Check postgres is running
         postgres_info = self.helper_get_container_values('postgres', 5432)
         postgres_uri = 'postgresql://postgres:@{host}:{port}'.format(
@@ -145,6 +136,21 @@ class TestTestEnvironment(unittest.TestCase):
             engine.connect()
         except OperationalError as e:
             self.fail('Postgresql database has not started: {}'.format(e))
+
+        # Check consul is running
+        consul_info = self.helper_get_container_values('consul', 8500)
+        session = Consul(host=consul_info['host'], port=consul_info['port'])
+        self.assertEqual(
+            session.kv.get('config/adsws/staging/DEBUG'),
+            "false"
+        )
+        self.assertEqual(
+            session.kv.get('config/adsws/staging/SQLALCHEMY_DATABASE_URI'),
+            '"postgresql+psycopg2://adsabs:@{}:{}/adsws"'.format(
+                postgres_info['host'],
+                postgres_info['port']
+            )
+        )
 
     def test_stop_test_environment_task(self):
         """

@@ -2,14 +2,16 @@
 Tasks that should live outside of the request/response cycle
 """
 import datetime
-from flask import current_app
 import json
 
 from mc.app import create_celery
 from mc.models import db, Build, Commit
 from mc.builders import DockerImageBuilder, DockerRunner, docker_runner_factory, TestRunner
 from mc.utils import get_boto_session
+from flask import current_app
 from docker import Client
+from werkzeug.security import gen_salt
+from collections import OrderedDict
 
 celery = create_celery()
 
@@ -52,7 +54,7 @@ def update_service(cluster, service, desiredCount, taskDefinition):
 
 
 @celery.task()
-def start_test_environment(test_id='livetest', config={}):
+def start_test_environment(test_id=None, config={}):
     """
     Creates the test environment:
       - Run dependency containers
@@ -64,6 +66,11 @@ def start_test_environment(test_id='livetest', config={}):
     :return: None
     """
 
+    if not test_id:
+        test_id = gen_salt(5)
+
+    config = OrderedDict(config)
+
     services = config.setdefault('services', [
             {
                 'name': 'adsws',
@@ -74,28 +81,50 @@ def start_test_environment(test_id='livetest', config={}):
 
     dependencies = config.setdefault('dependencies', [
         {
-            "name": "redis",
-            "image": "redis:2.8.9",
+            'name': 'redis',
+            'image': 'redis:2.8.21'
         },
         {
-            "name": "consul",
-            "image": "adsabs/consul:v1.0.0",
+            'name': 'postgres',
+            'image': 'postgres:9.3',
         },
         {
-            "name": "postgres",
-            "image": "postgres:9.3",
+            'name': 'consul',
+            'image': 'adsabs/consul:v1.0.0',
+            'requirements': ['redis', 'postgres']
         },
     ])
 
+    containers = {}
+
+    # Deploy
     for d in dependencies:
         builder = docker_runner_factory(image=d['image'])(
             image=d['image'],
             name="{}-{}".format(d['name'], test_id),
         )
         builder.start()
-        builder.provision(services=[s['name'].replace('-service', '') for s in services])
+        containers[d['name']] = builder
+
+    # Provision
+    for d in dependencies:
+        containers[d['name']].provision(
+            services=[s['name'].replace('-service', '') for s in services],
+            requirements={r: containers[r] for r in d.get('requirements', [])}
+        )
+
+    # Required values for services that are based on dependencies
+    # We are using the docker0 IP for localhost (of host) in the container
+    service_environment = dict(
+        CONSUL_HOST='172.17.42.1',
+        CONSUL_PORT=containers['consul'].running_port,
+        ENVIRONMENT='staging'
+    )
 
     for s in services:
+
+        service_environment['SERVICE'] = s['name']
+
         image = '{repository}/{service}:{tag}'.format(
             repository=s['repository'],
             service=s['name'],
@@ -103,9 +132,12 @@ def start_test_environment(test_id='livetest', config={}):
         )
         builder = docker_runner_factory('gunicorn')(
             image=image,
-            name='{}-{}'.format(s['name'], test_id)
+            name='{}-{}'.format(s['name'], test_id),
+            environment=service_environment
         )
         builder.start()
+
+        containers[s['name']] = builder
 
 
 @celery.task()
@@ -120,7 +152,8 @@ def stop_test_environment(test_id=None):
     containers = [i['Id'] for i in docker.containers() if [j for j in i['Names'] if test_id in j]]
 
     for container in containers:
-        docker.stop(container)
+        docker.stop(container=container)
+        docker.remove_container(container=container)
 
 
 @celery.task()

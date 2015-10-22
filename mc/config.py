@@ -35,7 +35,7 @@ DEPENDENCIES = {
     },
     'REDIS': {
         'PORT': 6379,
-        'IMAGE': 'redis:2.8.19'
+        'IMAGE': 'redis:2.8.21'
     },
     'GUNICORN': {
         'PORT': 80

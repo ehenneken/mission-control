@@ -127,6 +127,8 @@ class ConsulProvisioner(ScriptProvisioner):
 
     def __init__(self, services, **kwargs):
 
+        self.requirements = kwargs.get('requirements', {})
+
         super(ConsulProvisioner, self).__init__(scripts=None, shell=True)
 
         self._KNOWN_SERVICES = self.known_services()
@@ -146,10 +148,13 @@ class ConsulProvisioner(ScriptProvisioner):
             self.services[s] = template.render(
                 service=s,
                 port=kwargs['container'].running_port,
-                db_host=ConsulProvisioner.get_db_params()['HOST'],
-                db_port=ConsulProvisioner.get_db_params()['PORT']
+                db_host=self.get_db_params()['HOST'],
+                db_port=self.get_db_params()['PORT'],
+                cache_host=self.get_cache_params()['HOST'],
+                cache_port=self.get_cache_params()['PORT']
             )
         self.scripts = self.services.values()
+        print self.scripts
 
     @classmethod
     def known_services(cls):
@@ -182,18 +187,31 @@ class ConsulProvisioner(ScriptProvisioner):
 
         return cli
 
-    @staticmethod
-    def get_db_params():
+    def get_db_params(self):
         """
         finds the parameters necessary to connect to the postgres instance.
         :return: string uri of the postgres instance
         """
         try:
-            config = current_app.config
-        except RuntimeError:  # Outside of application context
-            config = create_app().config
+            host = '172.17.42.1'
+            port = self.requirements['postgres'].running_port
+        except KeyError:
+            host = 'localhost'
+            port = 5432
+        return dict(HOST=host, PORT=port)
 
-        return config['DEPENDENCIES']['POSTGRES']
+    def get_cache_params(self):
+        """
+        finds the parameters necessary to connect to the postgres instance.
+        :return: string uri of the postgres instance
+        """
+        try:
+            host = '172.17.42.1'
+            port = self.requirements['redis'].running_port
+        except KeyError:
+            host = 'localhost'
+            port = 6379
+        return dict(HOST=host, PORT=port)
 
 
 class TestProvisioner(ScriptProvisioner):

@@ -130,39 +130,29 @@ class TestConsulProvisioner(unittest.TestCase):
             msg='{} does not endwith {}'.format(P.directory, ends_with)
         )
 
-    def test_get_cli_params(self):
-        """
-        This @staticmethod should return a string.
-        The function should work both with and without an application context
-        """
-        cli = ConsulProvisioner.get_cli_params()
-        self.assertIsInstance(cli, basestring)
-
-        with create_app().app_context():
-            self.assertEqual(cli, ConsulProvisioner.get_cli_params())
-            # Delete the requires config value to see if the method tries to
-            # access it. Expect KeyError
-            with self.assertRaises(KeyError):
-                del current_app.config['DEPENDENCIES']['CONSUL']
-                ConsulProvisioner.get_cli_params()
-
-    def test_get_database_params(self):
+    def test_get_requirement_params(self):
         """
         This @statmicmethod should return a dictionary.
         The function should work both with and without and application context.
         It retreives the relevant parameters from postgres, for consul.
         """
 
-        db = ConsulProvisioner.get_db_params()
-        self.assertIsInstance(db, dict)
+        consul_mock = Mock(running_port=8500)
+        postgres_mock = Mock(running_host='localhost', running_port=5437)
+        redis_mock = Mock(running_host='localhost', running_port=6739)
 
-        with create_app().app_context():
-            self.assertEqual(db, ConsulProvisioner.get_db_params())
-            # Delete the requires config value to see if the method tries to
-            # access it. Expect KeyError
-            with self.assertRaises(KeyError):
-                del current_app.config['DEPENDENCIES']['POSTGRES']
-                ConsulProvisioner.get_db_params()
+        P = ConsulProvisioner(container=consul_mock,
+                              services=['adsws'],
+                              requirements={'postgres': postgres_mock, 'redis': redis_mock}
+                              )
+
+        db_params = P.get_db_params()
+        self.assertEqual(db_params['HOST'], 'localhost')
+        self.assertEqual(db_params['PORT'], 5437)
+
+        cache_params = P.get_cache_params()
+        self.assertEqual(cache_params['HOST'], 'localhost')
+        self.assertEqual(cache_params['PORT'], 6739)
 
 
 class TestTestProvisioner(unittest.TestCase):
