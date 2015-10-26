@@ -6,7 +6,8 @@ from mock import patch, call, Mock
 from mc import app
 from mc.models import db, Commit, Build
 from mc.tasks import register_task_revision, build_docker, update_service, \
-    start_test_environment, stop_test_environment, run_test_in_environment
+    start_test_environment, stop_test_environment, run_test_in_environment, \
+    run_task
 import datetime
 
 
@@ -192,6 +193,29 @@ class TestUpdateService(TestCase):
         session.client.assert_called_with('ecs')
         client.update_service.assert_called_with(**kwargs)
 
+class TestRunTask(TestCase):
+    """
+    Test the run task
+    """
+    def create_app(self):
+        return app.create_app()
+
+    @patch('mc.tasks.get_boto_session')
+    def test_run_task(self, Session):
+        """
+        the run_task task should pass call the boto3 task after
+        establishing a session
+        """
+        session = Session.return_value
+        client = session.client.return_value
+        kwargs = dict(
+            cluster="unittest-cluster",
+            desiredCount=1,
+            taskDefinition='{"valid": "json"}',
+        )
+        run_task(**kwargs)
+        session.client.assert_called_with('ecs')
+        client.run_task.assert_called_with(**kwargs)
 
 class TestDockerBuildTask(TestCase):
     """
