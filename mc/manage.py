@@ -14,7 +14,7 @@ from flask.ext.migrate import Migrate, MigrateCommand
 from flask import current_app
 from mc.models import db, Build, Commit
 from mc.app import create_app
-from mc.tasks import build_docker, register_task_revision, update_service
+from mc.tasks import build_docker, register_task_revision, update_service, run_task
 from mc.builders import ECSBuilder
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
@@ -199,7 +199,26 @@ class UpdateService(Command):
                            taskDefinition=taskDefinition,
             )
 
+class RunTask(Command):
+    """
+    Calls tasks.run_task to run a specific task on an ECS cluster
+    """
 
+    option_list = (
+        Option('--cluster', '-c', dest='cluster'),
+        Option('--desiredCount', dest='desiredCount', type=int),
+        Option('--taskDefinition', '-t', dest='taskDefinition'),
+    )
+
+    def run(self, cluster, desiredCount, taskDefinition, app=app):
+        with app.app_context():
+            run_task(cluster=cluster,
+                           desiredCount=desiredCount,
+                           taskDefinition=taskDefinition,
+            )
+
+
+manager.add_command('run_task', RunTask)
 manager.add_command('update_service', UpdateService)
 manager.add_command('register_task_def', RegisterTaskRevision)
 manager.add_command('db', MigrateCommand)
