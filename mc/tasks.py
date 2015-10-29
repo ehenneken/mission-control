@@ -1,8 +1,9 @@
 """
 Tasks that should live outside of the request/response cycle
 """
-import datetime
 import json
+import logging
+import datetime
 
 from mc.app import create_celery
 from mc.models import db, Build, Commit
@@ -14,6 +15,8 @@ from werkzeug.security import gen_salt
 from collections import OrderedDict
 
 celery = create_celery()
+
+logger = logging.getLogger()
 
 
 @celery.task()
@@ -72,12 +75,17 @@ def start_test_environment(test_id=None, config={}):
     config = OrderedDict(config)
 
     services = config.setdefault('services', [
-            {
-                'name': 'adsws',
-                'repository': 'adsabs',
-                'tag': '0596971c755855ff3f9caed2f96af7f9d5792cc2'
-            }
-        ])
+        {
+            'name': 'graphics_service',
+            'repository': 'adsabs',
+            'tag': 'dd905b927323e1ecf2a563a80d2bc5d9d98b62b4'
+        },
+        {
+            'name': 'adsws',
+            'repository': 'adsabs',
+            'tag': '1412043693c94cbed63b59ba7988c69f5433fc2a'
+        }
+    ])
 
     dependencies = config.setdefault('dependencies', [
         {
@@ -98,7 +106,9 @@ def start_test_environment(test_id=None, config={}):
     containers = {}
 
     # Deploy
+    logger.info('Starting cluster dependencies...')
     for d in dependencies:
+        logger.info('... {}'.format(d['image']))
         builder = docker_runner_factory(image=d['image'])(
             image=d['image'],
             name="{}-{}".format(d['name'], test_id),
@@ -107,11 +117,13 @@ def start_test_environment(test_id=None, config={}):
         containers[d['name']] = builder
 
     # Provision
+    logger.info('Provisioning cluster dependencies...')
     for d in dependencies:
         containers[d['name']].provision(
-            services=[s['name'].replace('-service', '') for s in services],
+            services=[s['name'].replace('-service', '').replace('_service', '') for s in services],
             requirements={r: containers[r] for r in d.get('requirements', [])}
         )
+        logger.info('... {}'.format(d['image']))
 
     # Required values for services that are based on dependencies
     # We are using the docker0 IP for localhost (of host) in the container
@@ -121,7 +133,10 @@ def start_test_environment(test_id=None, config={}):
         ENVIRONMENT='staging'
     )
 
+    logger.info('Starting services...')
     for s in services:
+
+        logger.info('... {}/{}:{}'.format(*s))
 
         service_environment['SERVICE'] = s['name']
 

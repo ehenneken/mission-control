@@ -7,7 +7,7 @@ import unittest
 
 from mc.tasks import start_test_environment, stop_test_environment, run_test_in_environment
 from mc.builders import GunicornDockerRunner
-from docker import Client
+from docker import Client, errors
 from consulate import Consul
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
@@ -101,13 +101,13 @@ class TestTestEnvironment(unittest.TestCase):
         cli = Client(base_url='unix://var/run/docker.sock')
         container = [i for i in cli.containers() if name in i['Image']][0]
         container_id = container['Id']
-        container_name = container['Names'][0]
+        container_name = container['Names'][0].replace('/', '')
 
         try:
             cli.stop(container_id)
             cli.remove_container(container_name)
-        except Exception:
-            pass
+        except Exception as err:
+            print err
 
     def test_start_test_environment_task(self):
         """
@@ -144,10 +144,11 @@ class TestTestEnvironment(unittest.TestCase):
             session.kv.get('config/adsws/staging/DEBUG'),
             "false"
         )
+
         self.assertEqual(
             session.kv.get('config/adsws/staging/SQLALCHEMY_DATABASE_URI'),
             '"postgresql+psycopg2://adsabs:@{}:{}/adsws"'.format(
-                postgres_info['host'],
+                '172.17.42.1',
                 postgres_info['port']
             )
         )
@@ -158,12 +159,23 @@ class TestTestEnvironment(unittest.TestCase):
         """
 
         test_id = '34fe32fdsfdsxxx'
-
         docker = Client(version='auto')
-        container = docker.create_container(
-            image='adsabs/pythonsimpleserver:v1.0.0',
-            name='livetest-pythonserver-{}'.format(test_id),
-        )
+        image = 'adsabs/pythonsimpleserver:v1.0.0'
+
+        try:
+            container = docker.create_container(
+                image=image,
+                name='livetest-pythonserver-{}'.format(test_id),
+            )
+        except errors.NotFound:
+            docker.pull(image)
+            container = docker.create_container(
+                image='adsabs/pythonsimpleserver:v1.0.0',
+                name='livetest-pythonserver-{}'.format(test_id),
+            )
+        except Exception as error:
+            self.fail('Unknown exception: {}'.format(error))
+
         docker.start(container=container['Id'])
 
         stop_test_environment(test_id=test_id)

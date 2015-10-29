@@ -198,6 +198,8 @@ class ConsulProvisioner(ScriptProvisioner):
         except KeyError:
             host = 'localhost'
             port = 5432
+
+        self.logger.info('Provisioned Postgres with, {}:{}'.format(host, port))
         return dict(HOST=host, PORT=port)
 
     def get_cache_params(self):
@@ -211,6 +213,8 @@ class ConsulProvisioner(ScriptProvisioner):
         except KeyError:
             host = 'localhost'
             port = 6379
+
+        self.logger.info('Provisioned Redis with, {}:{}'.format(host, port))
         return dict(HOST=host, PORT=port)
 
 

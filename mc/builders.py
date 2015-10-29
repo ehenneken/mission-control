@@ -4,7 +4,6 @@ from mc.exceptions import BuildError, TimeOutError
 from mc.provisioners import ConsulProvisioner, PostgresProvisioner, TestProvisioner
 from flask import current_app
 from docker import Client
-from docker.utils import create_host_config
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine
 from redis import Redis, ConnectionError
@@ -271,20 +270,21 @@ class DockerRunner(object):
         self.name = name
         self.command = command
         self.environment = environment
-        self.host_config = create_host_config(**kwargs)
         self.running_properties = None
         self.time_out = 30
         self.pull = kwargs.get('pull', True)
         self.running_port = None
         self.running_host = None
-
         self.client = Client(version='auto')
+        self.host_config = self.client.create_host_config(**kwargs)
         self.container = None
+
         try:
             self.logger = current_app.logger
         except RuntimeError:  # Outside of application context
             self.logger = logging.getLogger("{}-builder".format(self.name))
             self.logger.setLevel(logging.DEBUG)
+
         self.setup()
 
     def setup(self):
@@ -475,8 +475,11 @@ class GunicornDockerRunner(DockerRunner):
 
         if response.status_code == 200:
             return True
-        else:
+        elif response.status_code >= 500:
             return False
+        else:
+            self.logger.warning('Unexpected error code from {}: {}'.format(self.image, response.status_code))
+            return True
 
 
 class ConsulDockerRunner(DockerRunner):
