@@ -81,6 +81,11 @@ def start_test_environment(test_id=None, config={}):
             'tag': 'dd905b927323e1ecf2a563a80d2bc5d9d98b62b4'
         },
         {
+            'name': 'metrics_service',
+            'repository': 'adsabs',
+            'tag': '36d68b50d46277fb1b6b29e9128e170fe14221c5'
+        },
+        {
             'name': 'adsws',
             'repository': 'adsabs',
             'tag': '1412043693c94cbed63b59ba7988c69f5433fc2a'
@@ -101,6 +106,11 @@ def start_test_environment(test_id=None, config={}):
             'image': 'adsabs/consul:v1.0.0',
             'requirements': ['redis', 'postgres']
         },
+        {
+            'name': 'registrator',
+            'image': 'gliderlabs/registrator:latest',
+            'build_requirements': ['consul']
+        }
     ])
 
     containers = {}
@@ -109,9 +119,11 @@ def start_test_environment(test_id=None, config={}):
     logger.info('Starting cluster dependencies...')
     for d in dependencies:
         logger.info('... {}'.format(d['image']))
+
         builder = docker_runner_factory(image=d['image'])(
             image=d['image'],
             name="{}-{}".format(d['name'], test_id),
+            build_requirements={r: containers[r] for r in (d['build_requirements'] if d.get('build_requirements', False) else [])}
         )
         builder.start()
         containers[d['name']] = builder
@@ -136,7 +148,11 @@ def start_test_environment(test_id=None, config={}):
     logger.info('Starting services...')
     for s in services:
 
-        logger.info('... {}/{}:{}'.format(*s))
+        logger.info('... {}/{}:{}'.format(
+            s['repository'],
+            s['name'],
+            s['tag']
+        ))
 
         service_environment['SERVICE'] = s['name']
 

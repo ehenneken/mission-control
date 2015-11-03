@@ -1,0 +1,1 @@
+{"config/graphics_service/staging/GRAPHICS_INCLUDE_ARXIV": "False", "config/graphics_service/staging/GRAPHICS_API_TOKEN": "API_TOKEN", "config/graphics_service/staging/SQLALCHEMY_BINDS": "{\"graphics\":\"postgresql+psycopg2://postgres:@{{db_host}}:{{db_port}}/graphics\"}"}

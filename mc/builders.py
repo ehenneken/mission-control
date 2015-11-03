@@ -15,6 +15,8 @@ import logging
 import tarfile
 import requests
 
+DOCKER_BRIDGE = '172.17.42.1'
+
 
 class ECSBuilder(object):
     """
@@ -276,6 +278,8 @@ class DockerRunner(object):
         self.running_port = None
         self.running_host = None
         self.client = Client(version='auto')
+
+        kwargs.pop('build_requirements', '')
         self.host_config = self.client.create_host_config(**kwargs)
         self.container = None
 
@@ -376,10 +380,12 @@ class DockerRunner(object):
             self.running_properties = running_properties
 
             if self.service_name:
-                running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
-
-                self.running_host = running[0]['HostIp']
-                self.running_port = running[0]['HostPort']
+                try:
+                    running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
+                    self.running_host = running[0]['HostIp']
+                    self.running_port = running[0]['HostPort']
+                except KeyError:
+                    pass
 
             return True
 
@@ -440,13 +446,14 @@ class GunicornDockerRunner(DockerRunner):
     def __init__(self, image=None, name=None, command=None, environment=None, **kwargs):
 
         gunicorn_environment = {
-            'CONSUL_HOST': '172.17.42.1',
+            'CONSUL_HOST': DOCKER_BRIDGE,
             'CONSUL_PORT': kwargs.get('consul_port', 8500),
             'SERVICE': kwargs.get('service_name', 'generic_service'),
             'ENVIRONMENT': kwargs.get('service_environment', 'staging')
         }
 
         kwargs.setdefault('port_bindings', {80: None})
+        kwargs.setdefault('dns', [DOCKER_BRIDGE])
         super(GunicornDockerRunner, self).__init__(
             image,
             name,
@@ -484,7 +491,7 @@ class GunicornDockerRunner(DockerRunner):
 
 class ConsulDockerRunner(DockerRunner):
     """
-    Wrapper for redis specific commands
+    Wrapper for consul specific commands
     """
 
     service_name = 'consul'
@@ -493,11 +500,12 @@ class ConsulDockerRunner(DockerRunner):
     def __init__(self, image=None, name=None, command=None, **kwargs):
 
         image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
         command = ['-server', '-bootstrap'] if not command else command
 
         kwargs.setdefault('mem_limit', '50m')
-        kwargs.setdefault('port_bindings', {8500: None})
+        kwargs.setdefault('port_bindings', {8500: None, '53/tcp': 53, '53/udp': 53})
 
         super(ConsulDockerRunner, self).__init__(image, name, command, **kwargs)
 
@@ -517,7 +525,7 @@ class ConsulDockerRunner(DockerRunner):
                     self.running_port
                 )
             )
-        except requests.ConnectionError:
+        except requests.nnnectionError:
             return False
 
         if response.status_code == 404:
@@ -528,9 +536,44 @@ class ConsulDockerRunner(DockerRunner):
             return False
 
 
+class RegistratorDockerRunner(DockerRunner):
+    """
+    Wrapper for registrator specific commands
+    """
+
+    service_name = 'registrator'
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        name = self.service_name if not name else name
+        requirements = kwargs.pop('build_requirements', 8500)
+        consul = requirements.get('consul')
+        command = ['-ip', DOCKER_BRIDGE, '-resync', '10', 'consul://{}:{}'.format(DOCKER_BRIDGE, consul.running_port), '-bootstrap'] if not command else command
+
+        binds = {
+            '/var/run/docker.sock': {
+                'bind': '/tmp/docker.sock',
+                'mode': 'rw',
+            }
+        }
+
+        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('binds', binds)
+
+        super(RegistratorDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        No ready function
+        """
+        return self.running
+
+
 class PostgresDockerRunner(DockerRunner):
     """
-    Wrapper for redis specific commands
+    Wrapper for postgres specific commands
     """
 
     service_name = 'postgres'
@@ -581,7 +624,8 @@ def docker_runner_factory(image):
         'gunicorn': GunicornDockerRunner,
         'redis': RedisDockerRunner,
         'consul': ConsulDockerRunner,
-        'postgres': PostgresDockerRunner
+        'postgres': PostgresDockerRunner,
+        'registrator': RegistratorDockerRunner
     }
 
     for key in mapping:

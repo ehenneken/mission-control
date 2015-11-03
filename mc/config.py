@@ -40,6 +40,9 @@ DEPENDENCIES = {
     'GUNICORN': {
         'PORT': 80
     },
+    'REGISTRATOR': {
+        'IMAGE': 'gliderlabs/registrator:latest'
+    }
 }
 
 MC_LOGGING = {

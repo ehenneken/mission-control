@@ -47,6 +47,11 @@ class TestTestEnvironment(unittest.TestCase):
                 'image': 'adsabs/consul:v1.0.0',
                 'requirements': ['redis', 'postgres']
             },
+            {
+                'name': 'registrator',
+                'image': 'gliderlabs/registrator:latest',
+                'build_requirements': ['consul']
+            }
         ])
 
     def tearDown(self):
@@ -84,10 +89,15 @@ class TestTestEnvironment(unittest.TestCase):
         :return: dictionary
         """
         cli = Client(base_url='unix://var/run/docker.sock')
+        print cli.containers
         container_id = [i for i in cli.containers() if name in i['Image']][0]['Id']
-        info = cli.port(container_id, port)[0]
-        container_port = info['HostPort']
-        container_host = info['HostIp']
+        if port:
+            info = cli.port(container_id, port)[0]
+            container_port = info['HostPort']
+            container_host = info['HostIp']
+        else:
+            container_host = '127.0.0.1'
+            container_port = None
 
         return dict(port=container_port, host=container_host, id=container_id)
 
@@ -99,6 +109,7 @@ class TestTestEnvironment(unittest.TestCase):
         :type name: basestring
         """
         cli = Client(base_url='unix://var/run/docker.sock')
+        print cli.containers()
         container = [i for i in cli.containers() if name in i['Image']][0]
         container_id = container['Id']
         container_name = container['Names'][0].replace('/', '')
@@ -147,11 +158,15 @@ class TestTestEnvironment(unittest.TestCase):
 
         self.assertEqual(
             session.kv.get('config/adsws/staging/SQLALCHEMY_DATABASE_URI'),
-            '"postgresql+psycopg2://adsabs:@{}:{}/adsws"'.format(
+            '"postgresql+psycopg2://postgres:@{}:{}/adsws"'.format(
                 '172.17.42.1',
                 postgres_info['port']
             )
         )
+
+        # Check registrator is running
+        registrator_info = self.helper_get_container_values('registrator', None)
+        print registrator_info
 
     def test_stop_test_environment_task(self):
         """

@@ -17,6 +17,7 @@ class TestTestEnvironment(TestCase):
     def create_app(self):
         return app.create_app()
 
+    @patch('mc.builders.RegistratorDockerRunner')
     @patch('mc.builders.GunicornDockerRunner')
     @patch('mc.builders.PostgresDockerRunner')
     @patch('mc.builders.ConsulDockerRunner')
@@ -25,7 +26,8 @@ class TestTestEnvironment(TestCase):
                                   mocked_redis_runner,
                                   mocked_consul_runner,
                                   mocked_postgres_runner,
-                                  mocked_gunicorn_runner
+                                  mocked_gunicorn_runner,
+                                  mocked_registrator_runner
                                   ):
         """
         Tests that the containers relevant for the test environment are started
@@ -53,6 +55,10 @@ class TestTestEnvironment(TestCase):
                 "name": "postgres",
                 "image": "postgres:9.3",
             },
+            {
+                "name": "registrator",
+                "image": "gliderlabs/registrator:latest"
+            }
         ])
 
         instance_gunicorn_runner = mocked_gunicorn_runner.return_value
@@ -71,12 +77,17 @@ class TestTestEnvironment(TestCase):
         instance_postgres_runner.start.return_value = None
         instance_postgres_runner.provision.return_value = None
 
+        instance_registrator_runner = mocked_registrator_runner.return_value
+        instance_registrator_runner.start.return_value = None
+        instance_registrator_runner.provision.return_value = None
+
         start_test_environment(test_id=None, config=config)
 
         self.assertTrue(instance_redis_runner.start.called)
         self.assertTrue(instance_consul_runner.start.called)
         self.assertTrue(instance_postgres_runner.start.called)
         self.assertTrue(instance_gunicorn_runner.start.called)
+        self.assertTrue(instance_registrator_runner.start.called)
 
         instance_redis_runner.provision.has_calls(
             [call(callback=s['name']) for s in services]
@@ -85,6 +96,9 @@ class TestTestEnvironment(TestCase):
             [call(callback=s['name']) for s in services]
         )
         instance_postgres_runner.provision.has_calls(
+            [call(callback=s['name']) for s in services]
+        )
+        instance_registrator_runner.provision.has_calls(
             [call(callback=s['name']) for s in services]
         )
         instance_gunicorn_runner.provision.has_calls(

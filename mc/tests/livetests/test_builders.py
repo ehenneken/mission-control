@@ -6,7 +6,7 @@ import unittest
 
 from mc import config
 from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner, \
-    RedisDockerRunner, GunicornDockerRunner
+    RedisDockerRunner, GunicornDockerRunner, RegistratorDockerRunner
 from werkzeug.security import gen_salt
 
 
@@ -184,6 +184,42 @@ class TestGunicornDockerRunner(unittest.TestCase):
         self.name = 'livetest-gunicorn-{}'.format(gen_salt(5))
         self.builder = GunicornDockerRunner(
             image='adsabs/pythonsimpleserver:v1.0.0',
+            name=self.name,
+        )
+
+    def tearDown(self):
+        """
+        teardown the containers
+        """
+        try:
+            self.builder.teardown()
+        except:
+            pass
+
+    def test_is_ready(self):
+        """
+        Check if the instance is ready
+        """
+
+        self.builder.start()
+
+        self.assertTrue(self.builder.running)
+        self.assertTrue(self.builder.ready)
+
+        self.builder.teardown()
+        self.assertFalse(self.builder.ready)
+        self.assertFalse(self.builder.running)
+
+
+class TestRegistratorDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner for the Postgres service
+    """
+
+    def setUp(self):
+        self.name = 'livetest-registrator-{}'.format(gen_salt(5))
+        self.builder = RegistratorDockerRunner(
+            image='gliderlabs/registrator:latest',
             name=self.name,
         )
 
