@@ -86,6 +86,11 @@ def start_test_environment(test_id=None, config={}):
             'tag': '36d68b50d46277fb1b6b29e9128e170fe14221c5'
         },
         {
+            'name': 'recommender_service',
+            'repository': 'adsabs',
+            'tag': '1d56dd562a9fb18dad615b510f59be622345665e'
+        },
+        {
             'name': 'adsws',
             'repository': 'adsabs',
             'tag': '1412043693c94cbed63b59ba7988c69f5433fc2a'
