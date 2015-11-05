@@ -35,11 +35,15 @@ DEPENDENCIES = {
     },
     'REDIS': {
         'PORT': 6379,
-        'IMAGE': 'redis:2.8.19'
+        'IMAGE': 'redis:2.8.21'
     },
     'GUNICORN': {
         'PORT': 80
     },
+    'SOLR': {
+        'PORT': 8983,
+        'IMAGE': 'adsabs/montysolr:v48.1.0.3'
+    }
 }
 
 MC_LOGGING = {

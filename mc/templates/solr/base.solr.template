@@ -1,0 +1,4 @@
+#!/bin/bash
+
+article_content=`cat {{service}}/{{service}}.json`
+curl {{host}}:{{port}}/solr/update/json?commit=true -H 'Content-type: application/json' -d "$article_content"

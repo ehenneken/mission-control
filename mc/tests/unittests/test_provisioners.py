@@ -3,9 +3,8 @@ Test provisioners.py
 """
 import unittest
 from flask import current_app
-from mc.builders import GunicornDockerRunner
 from mc.provisioners import ScriptProvisioner, PostgresProvisioner, \
-    ConsulProvisioner, TestProvisioner
+    ConsulProvisioner, TestProvisioner, SolrProvisioner
 from mc.exceptions import UnknownServiceError
 from mc.app import create_app
 from mock import Mock, patch
@@ -163,6 +162,55 @@ class TestConsulProvisioner(unittest.TestCase):
             with self.assertRaises(KeyError):
                 del current_app.config['DEPENDENCIES']['POSTGRES']
                 ConsulProvisioner.get_db_params()
+
+
+class TestSolrProvisioner(unittest.TestCase):
+    """
+    Test that solr is provisioned correctly
+    """
+
+    def test_unknown_service(self):
+        """
+        Solr should not provision config values for unknown services.
+        """
+        with self.assertRaisesRegexp(UnknownServiceError, 'unknown-service'):
+            ConsulProvisioner('unknown-service')
+
+    def test_discovers_services_from_templates(self):
+        """
+        Provisioner should auto-discover which services it knows about.
+        """
+        known_services = ['recommender']
+        discovered_services = SolrProvisioner.known_services()
+        for item in known_services:
+            self.assertIn(item, discovered_services)
+
+    def test_templates(self):
+        """
+        Test that the templates are rendered after init on a known service;
+        The attribute self.services should be a dict with
+        key,value = service, template
+        the attribute directory should point to the base template directory
+        """
+
+        services = ['recommender']
+        container = Mock(running_port=8983, running_host='localhost')
+
+        P = SolrProvisioner(services, container=container)
+        self.assertIsInstance(P.services, dict)
+        self.assertListEqual(services, P.services.keys())
+        for s in services:
+            self.assertIsInstance(P.services[s], basestring)
+            self.assertIn(
+                s,
+                P.services[s],
+                msg="{} not in {}".format(s, P.services[s])
+            )
+        ends_with = 'templates/solr'
+        self.assertTrue(
+            P.directory.endswith(ends_with),
+            msg='{} does not endwith {}'.format(P.directory, ends_with)
+        )
 
 
 class TestTestProvisioner(unittest.TestCase):

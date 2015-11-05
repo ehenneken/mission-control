@@ -78,13 +78,17 @@ def start_test_environment(test_id='livetest', config={}):
             "image": "redis:2.8.9",
         },
         {
-            "name": "consul",
-            "image": "adsabs/consul:v1.0.0",
-        },
-        {
             "name": "postgres",
             "image": "postgres:9.3",
         },
+        {
+            "name": "solr",
+            "image": "adsabs/montysolr:v48.1.0.3"
+        },
+        {
+            "name": "consul",
+            "image": "adsabs/consul:v1.0.0",
+        }
     ])
 
     for d in dependencies:
