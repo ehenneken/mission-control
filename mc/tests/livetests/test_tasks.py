@@ -3,6 +3,7 @@ Test builders
 """
 
 import redis
+import requests
 import unittest
 
 from mc.tasks import start_test_environment, stop_test_environment, run_test_in_environment
@@ -39,6 +40,11 @@ class TestTestEnvironment(unittest.TestCase):
                     "name": "postgres",
                     "image": DEPENDENCIES['POSTGRES']['IMAGE'],
                     "callback": None,
+                },
+                {
+                    "name": "solr",
+                    "image": DEPENDENCIES['SOLR']['IMAGE'],
+                    "callback": None
                 }
             ],
             'services': [
@@ -145,6 +151,18 @@ class TestTestEnvironment(unittest.TestCase):
             engine.connect()
         except OperationalError as e:
             self.fail('Postgresql database has not started: {}'.format(e))
+
+        # Check solr is running
+        solr_info = self.helper_get_container_values('solr', 8983)
+        response = requests.get('http://{host}:{port}'.format(
+                host=solr_info['host'],
+                port=solr_info['port']
+            )
+        )
+        self.assertEqual(
+            response.status_code,
+            404
+        )
 
     def test_stop_test_environment_task(self):
         """

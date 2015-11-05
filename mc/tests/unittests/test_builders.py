@@ -15,7 +15,7 @@ import requests
 from sqlalchemy.exc import OperationalError
 from mc.builders import DockerImageBuilder, DockerRunner, ECSBuilder, \
     ConsulDockerRunner, PostgresDockerRunner, RedisDockerRunner, \
-    GunicornDockerRunner, TestRunner
+    GunicornDockerRunner, SolrDockerRunner, TestRunner
 from mc.models import Commit, Build
 from mc.exceptions import BuildError
 from httmock import all_requests, HTTMock
@@ -473,6 +473,66 @@ class TestGunicornDockerRunner(unittest.TestCase):
         """
         try:
             self.builder.provision(services=['adsaws'])
+        except Exception as e:
+            self.fail('Provisioning failed: {}'.format(e))
+
+
+class TestSolrDockerRunner(unittest.TestCase):
+    """
+    Test the docker runner specifically for Solr
+    """
+
+    @mock.patch('mc.builders.Client')
+    def setUp(self, mocked):
+        instance = mocked.return_value
+        instance.create_container.return_value = {'Id': 'mocked'}
+        instance.port.return_value = [{'HostIp': '127.0.0.1', 'HostPort': 1234}]
+        instance.containers.return_value = [
+            {
+                u'Command': u'/entrypoint.sh redis-server',
+                u'Created': 1443632967,
+                u'Id': u'mocked',
+                u'Image': u'redis',
+                u'Labels': {},
+                u'Names': [u'/livetest-redis-tLJpZ'],
+                u'Ports': [{u'PrivatePort': 6379, u'Type': u'tcp'}],
+                u'Status': u'Up About a minute'
+            }
+        ]
+        self.instance = instance
+        self.builder = SolrDockerRunner(network_mode="host")
+
+    def test_ready(self):
+        """
+        Tests the health check of the service
+        """
+
+        with mock.patch.object(mc.builders.requests,
+                               'get',
+                               side_effect=requests.ConnectionError):
+            self.assertFalse(self.builder.ready)
+
+        with HTTMock(response_500):
+            self.assertFalse(self.builder.ready)
+
+        with HTTMock(response_404):
+            self.assertTrue(self.builder.ready)
+
+    def test_can_provision(self):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        try:
+            self.builder.provision(services=['recommender'])
+        except Exception as e:
+            self.fail('Provisioning failed: {}'.format(e))
+
+    def test_does_not_raise_for_non_existing_service(self):
+        """
+        Tests that it skips services it does not know about
+        """
+        try:
+            self.builder.provision(services=['unknown_service'])
         except Exception as e:
             self.fail('Provisioning failed: {}'.format(e))
 

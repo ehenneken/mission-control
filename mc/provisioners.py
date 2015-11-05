@@ -55,6 +55,18 @@ class ScriptProvisioner(object):
                 p.wait()
                 self.processes["{}".format(script)] = p
 
+    @classmethod
+    def known_services(cls):
+        """
+        Services consul knows about
+        :return: list of services
+        """
+        template_dir = '{base}/{provisioner}'.format(
+            base=cls.template_dir,
+            provisioner=cls.name
+        )
+        return [_dir for _dir in os.listdir(template_dir)
+                if os.path.isdir(os.path.join(template_dir, _dir))]
 
 class PostgresProvisioner(ScriptProvisioner):
     """
@@ -194,6 +206,39 @@ class ConsulProvisioner(ScriptProvisioner):
             config = create_app().config
 
         return config['DEPENDENCIES']['POSTGRES']
+
+
+class SolrProvisioner(ScriptProvisioner):
+    """
+    Provision a single node of the Solr search engine
+    """
+
+    name = 'solr'
+
+    def __init__(self, services, **kwargs):
+
+        super(SolrProvisioner, self).__init__(scripts=None, shell=True)
+
+        self._KNOWN_SERVICES = self.known_services()
+        self.processes = OrderedDict()
+
+        services = [services] if isinstance(services, basestring) else services
+        if set(services).difference(self._KNOWN_SERVICES):
+            raise UnknownServiceError(
+                "{}".format(
+                    set(services).difference(self._KNOWN_SERVICES)))
+
+        self.services = OrderedDict()
+        engine = create_jinja2()
+        template = engine.get_template('{}/base.solr.template'.format(self.name))
+        self.directory = os.path.dirname(template.filename)
+        for s in services:
+            self.services[s] = template.render(
+                service=s,
+                host=kwargs['container'].running_host,
+                port=kwargs['container'].running_port,
+            )
+        self.scripts = self.services.values()
 
 
 class TestProvisioner(ScriptProvisioner):
