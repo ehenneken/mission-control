@@ -17,6 +17,7 @@ class TestTestEnvironment(TestCase):
     def create_app(self):
         return app.create_app()
 
+    @patch('mc.builders.SolrDockerRunner')
     @patch('mc.builders.RegistratorDockerRunner')
     @patch('mc.builders.GunicornDockerRunner')
     @patch('mc.builders.PostgresDockerRunner')
@@ -27,7 +28,8 @@ class TestTestEnvironment(TestCase):
                                   mocked_consul_runner,
                                   mocked_postgres_runner,
                                   mocked_gunicorn_runner,
-                                  mocked_registrator_runner
+                                  mocked_registrator_runner,
+                                  mocked_solr_runner
                                   ):
         """
         Tests that the containers relevant for the test environment are started
@@ -48,62 +50,57 @@ class TestTestEnvironment(TestCase):
                 "image": "redis:2.8.9",
             },
             {
-                "name": "consul",
-                "image": "adsabs/consul:v1.0.0",
-            },
-            {
                 "name": "postgres",
                 "image": "postgres:9.3",
             },
             {
                 "name": "registrator",
                 "image": "gliderlabs/registrator:latest"
+            },
+            {
+                "name": "solr",
+                "image": "adsabs/montysolr:v48.1.0.3"
+            },
+            {
+                "name": "consul",
+                "image": "adsabs/consul:v1.0.0",
             }
         ])
 
         instance_gunicorn_runner = mocked_gunicorn_runner.return_value
-        instance_gunicorn_runner.start.return_value = None
-        instance_gunicorn_runner.provision.return_value = None
-
         instance_redis_runner = mocked_redis_runner.return_value
-        instance_redis_runner.start.return_value = None
-        instance_redis_runner.provision.return_value = None
-
         instance_consul_runner = mocked_consul_runner.return_value
-        instance_consul_runner.start.return_value = None
-        instance_consul_runner.provision.return_value = None
-
         instance_postgres_runner = mocked_postgres_runner.return_value
-        instance_postgres_runner.start.return_value = None
-        instance_postgres_runner.provision.return_value = None
-
         instance_registrator_runner = mocked_registrator_runner.return_value
+        instance_solr_runner = mocked_solr_runner.return_value
+
+        instance_list = [
+            instance_gunicorn_runner,
+            instance_redis_runner,
+            instance_consul_runner,
+            instance_postgres_runner,
+            instance_registrator_runner,
+            instance_solr_runner
+        ]
+
+        for instance in instance_list:
+            instance.start.return_value = None
+            instance.provision.return_value = None
+
         instance_registrator_runner.start.return_value = None
         instance_registrator_runner.provision.return_value = None
 
         start_test_environment(test_id=None, config=config)
 
-        self.assertTrue(instance_redis_runner.start.called)
-        self.assertTrue(instance_consul_runner.start.called)
-        self.assertTrue(instance_postgres_runner.start.called)
-        self.assertTrue(instance_gunicorn_runner.start.called)
-        self.assertTrue(instance_registrator_runner.start.called)
+        for instance in instance_list:
 
-        instance_redis_runner.provision.has_calls(
-            [call(callback=s['name']) for s in services]
-        )
-        instance_consul_runner.provision.has_calls(
-            [call(callback=s['name']) for s in services]
-        )
-        instance_postgres_runner.provision.has_calls(
-            [call(callback=s['name']) for s in services]
-        )
-        instance_registrator_runner.provision.has_calls(
-            [call(callback=s['name']) for s in services]
-        )
-        instance_gunicorn_runner.provision.has_calls(
-            [call(callback=s['name']) for s in services]
-        )
+            self.assertTrue(
+                instance.start.called,
+                msg='Instance {} was not called'.format(instance)
+            )
+            instance.provision.has_calls(
+                [call(callback=s['name']) for s in services]
+            )
 
     @patch('mc.tasks.Client')
     def test_containers_are_stopped(self, mocked):

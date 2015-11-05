@@ -6,7 +6,7 @@ import unittest
 
 from mc import config
 from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner, \
-    RedisDockerRunner, GunicornDockerRunner, RegistratorDockerRunner
+    RedisDockerRunner, GunicornDockerRunner, RegistratorDockerRunner, SolrDockerRunner
 from werkzeug.security import gen_salt
 
 
@@ -66,6 +66,38 @@ class TestDockerRunner(unittest.TestCase):
             filters={'status': 'running'}
         )]
         self.assertIn(self.builder.container['Id'], running)
+
+
+class TestBaseDockerRunner(unittest.TestCase):
+
+    def setUp(self):
+        self.name = 'livetest-service-{}'.format(gen_salt(5))
+        self.builder = DockerRunner(
+            name=self.name,
+        )
+
+    def tearDown(self):
+        """
+        teardown the containers
+        """
+        try:
+            self.builder.teardown()
+        except:
+            pass
+
+    def helper_test_is_ready(self):
+        """
+        Check if the instance is ready
+        """
+
+        self.builder.start()
+
+        self.assertTrue(self.builder.running)
+        self.assertTrue(self.builder.ready)
+
+        self.builder.teardown()
+        self.assertFalse(self.builder.ready)
+        self.assertFalse(self.builder.running)
 
 
 class TestRedisDockerRunner(unittest.TestCase):
@@ -211,9 +243,9 @@ class TestGunicornDockerRunner(unittest.TestCase):
         self.assertFalse(self.builder.running)
 
 
-class TestRegistratorDockerRunner(unittest.TestCase):
+class TestRegistratorDockerRunner(TestBaseDockerRunner):
     """
-    Test the docker runner for the Postgres service
+    Test the docker runner for the Registrator service
     """
 
     def setUp(self):
@@ -236,12 +268,23 @@ class TestRegistratorDockerRunner(unittest.TestCase):
         """
         Check if the instance is ready
         """
+        self.helper_test_is_ready()
 
-        self.builder.start()
 
-        self.assertTrue(self.builder.running)
-        self.assertTrue(self.builder.ready)
+class TestSolrDockerRunner(TestBaseDockerRunner):
+    """
+    Test the docker runner for the Solr service
+    """
 
-        self.builder.teardown()
-        self.assertFalse(self.builder.ready)
-        self.assertFalse(self.builder.running)
+    def setUp(self):
+        self.name = 'livetest-solr-{}'.format(gen_salt(5))
+        self.builder = SolrDockerRunner(
+            name=self.name,
+        )
+
+    def test_is_ready(self):
+        """
+        Check if the instance is ready
+        """
+        self.helper_test_is_ready()
+

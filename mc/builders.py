@@ -1,7 +1,7 @@
 from mc.app import create_jinja2
 from mc.utils import timed
-from mc.exceptions import BuildError, TimeOutError
-from mc.provisioners import ConsulProvisioner, PostgresProvisioner, TestProvisioner
+from mc.exceptions import BuildError, TimeOutError, UnknownServiceError
+from mc.provisioners import ConsulProvisioner, PostgresProvisioner, SolrProvisioner, TestProvisioner
 from flask import current_app
 from docker import Client
 from sqlalchemy.exc import OperationalError
@@ -609,6 +609,62 @@ class PostgresDockerRunner(DockerRunner):
             return False
 
 
+class SolrDockerRunner(DockerRunner):
+    """
+    Wrapper for redis specific commands
+    """
+
+    service_name = 'solr'
+    service_provisioner = SolrProvisioner
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        name = self.service_name if not name else name
+
+        kwargs.setdefault('mem_limit', '800m')
+        kwargs.setdefault('port_bindings', {8983: None})
+
+        super(SolrDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        Check the service is ready
+        """
+
+        if not self.running:
+            return False
+
+        try:
+            response = requests.get(
+                'http://{}:{}'.format(
+                    self.running_host,
+                    self.running_port
+                )
+            )
+        except requests.ConnectionError:
+            return False
+
+        if response.status_code == 404:
+            return True
+        elif response.status_code == 500:
+            return False
+        else:
+            return False
+
+    def provision(self, services):
+        """
+        Override default provisioning behaviour to skip services that are unknown.
+        :param services: list of services
+        """
+        try:
+            super(SolrDockerRunner, self).provision(services)
+        except UnknownServiceError as error:
+            self.logger.warning('Skipping unknown service: {}'.format(error))
+            pass
+
+
 def docker_runner_factory(image):
     """
     Class factory for the docker runner. Returns a specific class for a specific
@@ -625,7 +681,8 @@ def docker_runner_factory(image):
         'redis': RedisDockerRunner,
         'consul': ConsulDockerRunner,
         'postgres': PostgresDockerRunner,
-        'registrator': RegistratorDockerRunner
+        'registrator': RegistratorDockerRunner,
+        'solr': SolrDockerRunner
     }
 
     for key in mapping:

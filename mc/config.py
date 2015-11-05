@@ -42,6 +42,10 @@ DEPENDENCIES = {
     },
     'REGISTRATOR': {
         'IMAGE': 'gliderlabs/registrator:latest'
+    },
+    'SOLR': {
+        'PORT': 8983,
+        'IMAGE': 'adsabs/montysolr:v48.1.0.3'
     }
 }
 

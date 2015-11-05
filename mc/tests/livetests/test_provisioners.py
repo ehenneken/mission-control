@@ -1,9 +1,10 @@
 """
 Test provisioners.py
 """
-from mc.provisioners import PostgresProvisioner, ConsulProvisioner, TestProvisioner
+from mc.provisioners import PostgresProvisioner, ConsulProvisioner, TestProvisioner, SolrProvisioner
 from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner, \
-    GunicornDockerRunner
+        GunicornDockerRunner, SolrDockerRunner
+
 from jinja2 import Template
 from werkzeug.security import gen_salt
 from sqlalchemy import create_engine
@@ -244,3 +245,76 @@ class TestTestProvisioner(unittest.TestCase):
         )
         self.assertIn(api_url, test_provisioner.scripts[0])
 
+
+class TestSolrProvisioner(unittest.TestCase):
+    """
+    Test the SolrProvisioner. Use the Docker builder to create the index
+    """
+
+    def setUp(self):
+        """
+        Starts a solr node for all the tests
+        """
+        self.name = 'livetest-solr-{}'.format(gen_salt(5))
+        self.builder = SolrDockerRunner(
+            name=self.name,
+        )
+
+        self.builder.start()
+        self.port = self.builder.client.port(
+            self.builder.container['Id'],
+            8983
+        )[0]['HostPort']
+
+    def tearDown(self):
+        """
+        Tears down the consul node used by the tests
+        """
+        self.builder.teardown()
+
+    def _provision(self, service):
+        """
+        Run the provision for a given service
+        """
+        SolrProvisioner(service, container=self.builder)()
+
+    def test_provisioning_recommender_service(self):
+        """
+        First run the provisioner and then we can check that the documents have been added to the solr index
+        """
+        self._provision('recommender')
+
+        # Obtain what we expect to find
+        config_file = '{}/{}/recommender/recommender.json'.format(
+            SolrProvisioner.template_dir,
+            SolrProvisioner.name,
+        )
+
+        with open(config_file) as json_file:
+            config = json.load(json_file)
+
+        # Compare with consul
+        for document in config:
+            response = requests.get('http://{host}:{port}/solr/query?q=bibcode:{bibcode}'.format(
+                host='localhost',
+                port=self.port,
+                bibcode=document['bibcode'])
+            )
+            self.assertEqual(
+                200,
+                response.status_code,
+                msg='We expect a 200 response but got: {}, {}'.format(response.status_code, response.json())
+            )
+
+            actual_document = response.json()['response']['docs'][0]
+            for key in document:
+                self.assertIn(key, document.keys())
+                self.assertEqual(
+                    document[key],
+                    actual_document[key],
+                    msg='Key {} mismatch: expected {} != actual {}'.format(
+                        key,
+                        document[key],
+                        actual_document[key]
+                    )
+                )

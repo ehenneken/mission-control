@@ -107,6 +107,10 @@ def start_test_environment(test_id=None, config={}):
             'image': 'postgres:9.3',
         },
         {
+            'name': 'solr',
+            'image': 'adsabs/montysolr:v48.1.0.3'
+        },
+        {
             'name': 'consul',
             'image': 'adsabs/consul:v1.0.0',
             'requirements': ['redis', 'postgres']

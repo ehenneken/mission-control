@@ -3,6 +3,7 @@ Test builders
 """
 
 import redis
+import requests
 import unittest
 
 from mc.tasks import start_test_environment, stop_test_environment, run_test_in_environment
@@ -23,6 +24,7 @@ class TestTestEnvironment(unittest.TestCase):
         """
         Define what we want to start
         """
+
         self.config = OrderedDict({})
 
         services = self.config.setdefault('services', [
@@ -51,6 +53,10 @@ class TestTestEnvironment(unittest.TestCase):
                 'name': 'registrator',
                 'image': 'gliderlabs/registrator:latest',
                 'build_requirements': ['consul']
+            },
+            {
+                'name': 'solr',
+
             }
         ])
 
@@ -148,6 +154,18 @@ class TestTestEnvironment(unittest.TestCase):
         except OperationalError as e:
             self.fail('Postgresql database has not started: {}'.format(e))
 
+        # Check solr is running
+        solr_info = self.helper_get_container_values('solr', 8983)
+        response = requests.get('http://{host}:{port}'.format(
+                host=solr_info['host'],
+                port=solr_info['port']
+            )
+        )
+        self.assertEqual(
+            response.status_code,
+            404
+        )
+
         # Check consul is running
         consul_info = self.helper_get_container_values('consul', 8500)
         session = Consul(host=consul_info['host'], port=consul_info['port'])
@@ -166,7 +184,6 @@ class TestTestEnvironment(unittest.TestCase):
 
         # Check registrator is running
         registrator_info = self.helper_get_container_values('registrator', None)
-        print registrator_info
 
     def test_stop_test_environment_task(self):
         """
