@@ -85,7 +85,7 @@ class TestBaseDockerRunner(unittest.TestCase):
         except:
             pass
 
-    def helper_test_is_ready(self):
+    def helper_is_service_ready(self):
         """
         Check if the instance is ready
         """
@@ -268,7 +268,7 @@ class TestRegistratorDockerRunner(TestBaseDockerRunner):
         """
         Check if the instance is ready
         """
-        self.helper_test_is_ready()
+        self.helper_is_service_ready()
 
 
 class TestSolrDockerRunner(TestBaseDockerRunner):
@@ -286,5 +286,5 @@ class TestSolrDockerRunner(TestBaseDockerRunner):
         """
         Check if the instance is ready
         """
-        self.helper_test_is_ready()
+        self.helper_is_service_ready()
 

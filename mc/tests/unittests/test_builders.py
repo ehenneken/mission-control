@@ -201,6 +201,7 @@ class TestDockerRunner(unittest.TestCase):
                 u'Status': u'Up About a minute'
             }
         ]
+        instance.create_host_config.return_value = {'NetworkMode': 'host', "Memory": 104857600}
         self.instance = instance
         self.builder = DockerRunner(
             image='redis',
@@ -220,7 +221,8 @@ class TestDockerRunner(unittest.TestCase):
             host_config={'NetworkMode': 'host', "Memory": 104857600},
             name='redis',
             image='redis',
-            command=None
+            command=None,
+            environment=None
         )
         self.instance.pull.assert_called_with('redis')
 
@@ -319,7 +321,7 @@ class TestConsulDockerRunner(unittest.TestCase):
         self.builder.provision(services=['adsaws'])
 
         mocked_consul_runner.assert_has_calls([
-            mock.call(services=['adsaws'], container=self.builder),
+            mock.call(services=['adsaws'], container=self.builder, requirements=None),
             mock.call()()
         ])
 
@@ -372,7 +374,7 @@ class TestPostgresDockerRunner(unittest.TestCase):
         self.builder.provision(services=['adsaws'])
 
         mocked.assert_has_calls([
-            mock.call(container=self.builder, services=['adsaws']),
+            mock.call(container=self.builder, requirements=None, services=['adsaws']),
             mock.call()()
         ])
 
@@ -448,6 +450,10 @@ class TestGunicornDockerRunner(unittest.TestCase):
                 u'Status': u'Up About a minute'
             }
         ]
+        instance.create_host_config.return_value = {'PortBindings': {
+                '80/tcp': [{'HostPort': '', 'HostIp': ''}]
+            }, 'NetworkMode': 'host'}
+
         self.instance = instance
         self.environment = dict(consul_host='localhost', consul_port=8500)
         self.builder = GunicornDockerRunner(network_mode="host",

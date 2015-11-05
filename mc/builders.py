@@ -525,7 +525,7 @@ class ConsulDockerRunner(DockerRunner):
                     self.running_port
                 )
             )
-        except requests.nnnectionError:
+        except requests.ConnectionError:
             return False
 
         if response.status_code == 404:
@@ -547,9 +547,13 @@ class RegistratorDockerRunner(DockerRunner):
 
         image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
-        requirements = kwargs.pop('build_requirements', 8500)
-        consul = requirements.get('consul')
-        command = ['-ip', DOCKER_BRIDGE, '-resync', '10', 'consul://{}:{}'.format(DOCKER_BRIDGE, consul.running_port), '-bootstrap'] if not command else command
+        requirements = kwargs.pop('build_requirements', {})
+        try:
+            consul = requirements['consul']
+            consul_port = consul.running_port
+        except KeyError:
+            consul_port = 8500
+        command = ['-ip', DOCKER_BRIDGE, '-resync', '10', 'consul://{}:{}'.format(DOCKER_BRIDGE, consul_port), '-bootstrap'] if not command else command
 
         binds = {
             '/var/run/docker.sock': {
@@ -653,13 +657,13 @@ class SolrDockerRunner(DockerRunner):
         else:
             return False
 
-    def provision(self, services):
+    def provision(self, services, requirements=None):
         """
         Override default provisioning behaviour to skip services that are unknown.
         :param services: list of services
         """
         try:
-            super(SolrDockerRunner, self).provision(services)
+            super(SolrDockerRunner, self).provision(services=services, requirements=requirements)
         except UnknownServiceError as error:
             self.logger.warning('Skipping unknown service: {}'.format(error))
             pass

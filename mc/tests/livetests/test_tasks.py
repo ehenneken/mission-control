@@ -45,6 +45,10 @@ class TestTestEnvironment(unittest.TestCase):
                 'image': 'postgres:9.3',
             },
             {
+                'name': 'solr',
+                'image': 'adsabs/montysolr:v48.1.0.3'
+            },
+            {
                 'name': 'consul',
                 'image': 'adsabs/consul:v1.0.0',
                 'requirements': ['redis', 'postgres']
@@ -53,10 +57,6 @@ class TestTestEnvironment(unittest.TestCase):
                 'name': 'registrator',
                 'image': 'gliderlabs/registrator:latest',
                 'build_requirements': ['consul']
-            },
-            {
-                'name': 'solr',
-
             }
         ])
 

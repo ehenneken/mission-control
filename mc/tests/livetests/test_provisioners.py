@@ -118,9 +118,9 @@ class TestConsulProvisioner(unittest.TestCase):
         db_uri = consul.kv.get('config/adsws/staging/SQLALCHEMY_DATABASE_URI')
         self.assertEqual(
             db_uri,
-            '"postgresql+psycopg2://adsabs:@localhost:5432/adsws"',
+            '"postgresql+psycopg2://postgres:@localhost:5432/adsws"',
             msg='Provisioning is not working: {} != '
-                'postgresql+psycopg2://adsabs:@localhost:5432/adsws'.format(db_uri)
+                'postgresql+psycopg2://postgres:@localhost:5432/adsws'.format(db_uri)
         )
 
 

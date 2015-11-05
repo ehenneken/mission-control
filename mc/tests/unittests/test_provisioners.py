@@ -146,11 +146,11 @@ class TestConsulProvisioner(unittest.TestCase):
                               )
 
         db_params = P.get_db_params()
-        self.assertEqual(db_params['HOST'], 'localhost')
+        self.assertEqual(db_params['HOST'], '172.17.42.1')
         self.assertEqual(db_params['PORT'], 5437)
 
         cache_params = P.get_cache_params()
-        self.assertEqual(cache_params['HOST'], 'localhost')
+        self.assertEqual(cache_params['HOST'], '172.17.42.1')
         self.assertEqual(cache_params['PORT'], 6739)
 
 
