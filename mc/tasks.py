@@ -62,7 +62,7 @@ def run_task(cluster, desiredCount, taskDefinition):
     client = get_boto_session().client('ecs')
     client.run_task(
         cluster=cluster,
-        desiredCount=desiredCount,
+        count=desiredCount,
         taskDefinition=taskDefinition
     )
 
