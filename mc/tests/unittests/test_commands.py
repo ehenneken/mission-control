@@ -6,7 +6,7 @@ from flask.ext.testing import TestCase
 from mc.app import create_app
 from mc.tests.stubdata import github_commit_payload
 from mc.manage import BuildDockerImage, MakeDockerrunTemplate, \
-    RegisterTaskRevision, UpdateService, ManageTestCluster
+    RegisterTaskRevision, UpdateService, ManageTestCluster, RunTask
 from mc.models import db, Commit, Build
 import mock
 import httpretty
@@ -92,6 +92,27 @@ class TestUpdateService(TestCase):
             taskDefinition="unittest-taskdefinition",
         )
         UpdateService().run(app=self.app, **kwargs)
+        mocked.assert_called_with(**kwargs)
+
+
+class TestRunTask(TestCase):
+    """
+    Test the manage.py run_task command
+    """
+    def create_app(self):
+        return create_app()
+
+    @mock.patch('mc.manage.run_task')
+    def test_run(self, mocked):
+        """
+        manage.py run_task <args> should be passed to tasks.run_task
+        """
+        kwargs = dict(
+            cluster="unittest-cluster",
+            count=1,
+            taskDefinition="unittest-taskdefinition",
+        )
+        RunTask().run(app=self.app, **kwargs)
         mocked.assert_called_with(**kwargs)
 
 
