@@ -18,3 +18,4 @@ redis==2.10.3
 httmock==1.2.3
 pytest==2.8.2
 requests==2.7.0
+PyYAML==3.10
