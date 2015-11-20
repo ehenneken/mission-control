@@ -32,9 +32,9 @@ To add a service to mission-control for a specific feature, you will need to fol
 
   * CI Testing
     1. You will need to include stub data for the relevant dependencies that the tests will use:
-      a. Solr
-      b. Postgres
-      c. Consul
+      1. Solr
+      2. Postgres
+      3. Consul
     2. Update the `config/adsws/staging/WEBSERVICES` in the Consul key-value store `mc/templates/consul/adsws/adsws.config.json` for service discovery.
     3. Check it is in the KNOWN_SERVICES in the Postgres provisioner (this should be removed soon).
 
