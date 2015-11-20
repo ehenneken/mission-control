@@ -307,12 +307,21 @@ class TestSolrProvisioner(unittest.TestCase):
             )
 
             actual_document = response.json()['response']['docs'][0]
-            for key in document:
-                self.assertIn(key, document.keys())
+
+            # Not all key/values are returned in the same fashion, so the following specified are some hand-picked
+            # keywords that we want to test were entered correctly into Solr
+            known_keys = ['pubdate', 'first_author', 'abstract', 'read_count', 'doctype', 'year', 'bibcode', 'volume']
+
+            for key in known_keys:
+                self.assertIn(
+                    key,
+                    actual_document.keys(),
+                    msg='Could not find key "{}" in response: {}'.format(key, actual_document.keys())
+                )
                 self.assertEqual(
                     document[key],
                     actual_document[key],
-                    msg='Key {} mismatch: expected {} != actual {}'.format(
+                    msg='Key "{}" mismatch: expected "{}" != actual "{}"'.format(
                         key,
                         document[key],
                         actual_document[key]

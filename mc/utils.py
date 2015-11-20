@@ -4,10 +4,34 @@ Generic utilities for mission control
 
 import os
 import time
+import yaml
 
 from boto3.session import Session
 from flask import current_app
 from mc.exceptions import TimeOutError
+from collections import OrderedDict
+
+
+def load_yaml_ordered(stream):
+    """
+    Load in a YAML file to an OrderedDict
+    Solution taken from:
+    http://stackoverflow.com/questions/5121931/in-python-how-can-you-load-yaml-mappings-as-ordereddicts
+    :param stream: byte stream input, eg., file
+    :return: OrderedDict of the configuration file
+    """
+    class OrderedLoader(yaml.Loader):
+        pass
+
+    def construct_mapping(loader, node):
+        loader.flatten_mapping(node)
+        return OrderedDict(loader.construct_pairs(node))
+
+    OrderedLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        construct_mapping)
+
+    return yaml.load(stream, OrderedLoader)
 
 
 def get_boto_session():

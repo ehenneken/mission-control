@@ -107,7 +107,8 @@ ALTER SEQUENCE clusters_id_seq OWNED BY clusters.id;
 CREATE TABLE coreads (
     id integer NOT NULL,
     bibcode character varying NOT NULL,
-    coreads json
+    coreads json,
+    readers character varying[]
 );
 
 
@@ -132,40 +133,6 @@ ALTER TABLE public.coreads_id_seq OWNER TO recommender;
 --
 
 ALTER SEQUENCE coreads_id_seq OWNED BY coreads.id;
-
-
---
--- Name: readers; Type: TABLE; Schema: public; Owner: recommender; Tablespace: 
---
-
-CREATE TABLE readers (
-    id integer NOT NULL,
-    bibcode character varying NOT NULL,
-    readers character varying[]
-);
-
-
-ALTER TABLE public.readers OWNER TO recommender;
-
---
--- Name: readers_id_seq; Type: SEQUENCE; Schema: public; Owner: recommender
---
-
-CREATE SEQUENCE readers_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.readers_id_seq OWNER TO recommender;
-
---
--- Name: readers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: recommender
---
-
-ALTER SEQUENCE readers_id_seq OWNED BY readers.id;
 
 
 --
@@ -227,13 +194,6 @@ ALTER TABLE ONLY coreads ALTER COLUMN id SET DEFAULT nextval('coreads_id_seq'::r
 -- Name: id; Type: DEFAULT; Schema: public; Owner: recommender
 --
 
-ALTER TABLE ONLY readers ALTER COLUMN id SET DEFAULT nextval('readers_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: public; Owner: recommender
---
-
 ALTER TABLE ONLY reads ALTER COLUMN id SET DEFAULT nextval('reads_id_seq'::regclass);
 
 
@@ -259,14 +219,6 @@ ALTER TABLE ONLY clusters
 
 ALTER TABLE ONLY coreads
     ADD CONSTRAINT coreads_pkey PRIMARY KEY (id);
-
-
---
--- Name: readers_pkey; Type: CONSTRAINT; Schema: public; Owner: recommender; Tablespace: 
---
-
-ALTER TABLE ONLY readers
-    ADD CONSTRAINT readers_pkey PRIMARY KEY (id);
 
 
 --
@@ -299,13 +251,6 @@ CREATE INDEX ix_coreads_bibcode ON coreads USING btree (bibcode);
 
 
 --
--- Name: ix_readers_bibcode; Type: INDEX; Schema: public; Owner: recommender; Tablespace: 
---
-
-CREATE INDEX ix_readers_bibcode ON readers USING btree (bibcode);
-
-
---
 -- Name: ix_reads_cookie; Type: INDEX; Schema: public; Owner: recommender; Tablespace: 
 --
 
@@ -313,12 +258,12 @@ CREATE INDEX ix_reads_cookie ON reads USING btree (cookie);
 
 
 --
--- Name: public; Type: ACL; Schema: -; Owner: recommender
+-- Name: public; Type: ACL; Schema: -; Owner: postgres
 --
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
-REVOKE ALL ON SCHEMA public FROM recommender;
-GRANT ALL ON SCHEMA public TO recommender;
+REVOKE ALL ON SCHEMA public FROM postgres;
+GRANT ALL ON SCHEMA public TO postgres;
 GRANT ALL ON SCHEMA public TO PUBLIC;
 
 

@@ -15,7 +15,7 @@ from flask import current_app
 from mc.models import db, Build, Commit
 from mc.app import create_app
 from mc.tasks import build_docker, register_task_revision, update_service, \
-    start_test_environment, stop_test_environment, run_test_in_environment
+    start_test_environment, stop_test_environment, run_ci_test
 from mc.builders import ECSBuilder
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
@@ -44,7 +44,7 @@ class ManageTestCluster(Command):
         command_look_up = {
             'start': start_test_environment,
             'stop': stop_test_environment,
-            'run': run_test_in_environment
+            'run': run_ci_test
         }
         command_look_up[command](test_id=test_id)
 

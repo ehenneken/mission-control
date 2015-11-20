@@ -282,7 +282,7 @@ COPY users (id, email, password, name, active, confirmed_at, last_login_at, logi
 10	vis-services@ads	\N	\N	\N	\N	\N	\N	\N	1000
 28	recommender@ads	\N	\N	\N	\N	\N	\N	\N	\N
 31	biblib@ads	\N	\N	\N	\N	\N	\N	\N	1000
-59	tester@ads	\N	\N	\N	\N	\N	\N	\N	\N
+59	tester@ads	\N	\N	t	\N	\N	\N	\N	\N
 \.
 
 

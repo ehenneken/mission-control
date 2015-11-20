@@ -22,6 +22,7 @@ WATCHED_REPOS = [
 ]
 
 # Local dependencies for the testing environment
+DOCKER_BRIDGE = '172.17.42.1'
 DEPENDENCIES = {
     'POSTGRES': {
         'USERNAME': 'postgres',

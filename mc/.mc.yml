@@ -1,0 +1,69 @@
+dependencies:
+ - name: redis
+   image: redis:2.8.21
+
+ - name: postgres
+   image: postgres:9.3
+
+ - name: solr
+   image: adsabs/montysolr:v48.1.0.3
+
+ - name: consul
+   image: adsabs/consul:v1.0.0
+   requirements:
+    - redis
+    - postgres
+    - solr
+
+ - name: registrator
+   image: gliderlabs/registrator:latest
+   build_requirements:
+     - consul
+
+services:
+ - name: graphics_service
+   repository: adsabs
+   tag: dd905b927323e1ecf2a563a80d2bc5d9d98b62b4
+
+ - name: metrics_service
+   repository: adsabs
+   tag: 36d68b50d46277fb1b6b29e9128e170fe14221c5
+
+ - name: recommender_service
+   repository: adsabs
+   tag: 1d56dd562a9fb18dad615b510f59be622345665e
+
+ - name: solr-service
+   repository: adsabs
+   tag: fcc18b9f35a12d19b88bb5144a12af3c1b0daf07
+
+ - name: export_service
+   repository: adsabs
+   tag: ce13e79c8d7152eb58671a09f1cea9ad5cad7a5d
+
+ - name: myads
+   repository: adsabs
+   tag: 2c2efc20e6ded8966613de553b430fc373144aec
+
+ - name: orcid-service
+   repository: adsabs
+   tag: abc36405382d98cc72a19e65de18df02eae182a5
+
+ - name: citation_helper_service
+   repository: adsabs
+   tag: 6452d7365e13aef58d1412ba01dd919f4a627e00
+
+ - name: vis-services
+   repository: adsabs
+   tag: b4d9b9c25508fb1aed955d27bcfcbf9cba76be6c
+
+ - name: biblib-service
+   repository: adsabs
+   tag: v1.0.2
+
+ - name: adsws
+   repository: adsabs
+   tag: 1412043693c94cbed63b59ba7988c69f5433fc2a
+
+tests:
+ - adsrex

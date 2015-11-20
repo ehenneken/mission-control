@@ -1,3 +1,4 @@
+.mc.ci
 .cache
 *pyc
 local_config.py

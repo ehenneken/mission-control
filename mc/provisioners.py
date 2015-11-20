@@ -68,6 +68,7 @@ class ScriptProvisioner(object):
         return [_dir for _dir in os.listdir(template_dir)
                 if os.path.isdir(os.path.join(template_dir, _dir))]
 
+
 class PostgresProvisioner(ScriptProvisioner):
     """
     Provisioner for a postgres database.
@@ -75,7 +76,7 @@ class PostgresProvisioner(ScriptProvisioner):
 
     # TODO: This should be based on what templates are discoverable, not
     # hard coded!
-    _KNOWN_SERVICES = ['adsws', 'metrics', 'biblib', 'graphics', 'recommender']
+    _KNOWN_SERVICES = ['adsws', 'metrics', 'biblib', 'graphics', 'recommender', 'solr', 'export', 'myads', 'orcid', 'citation_helper', 'vis']
     name = 'postgres'
 
     def __init__(self, services, **kwargs):
@@ -90,7 +91,9 @@ class PostgresProvisioner(ScriptProvisioner):
 
         if set(services).difference(self._KNOWN_SERVICES):
             raise UnknownServiceError(
-                "{}".format(
+                'services: {}, known: {}, difference: {}'.format(
+                    services,
+                    self._KNOWN_SERVICES,
                     set(services).difference(self._KNOWN_SERVICES)))
 
         self.services = OrderedDict()
@@ -163,7 +166,9 @@ class ConsulProvisioner(ScriptProvisioner):
                 db_host=self.get_db_params()['HOST'],
                 db_port=self.get_db_params()['PORT'],
                 cache_host=self.get_cache_params()['HOST'],
-                cache_port=self.get_cache_params()['PORT']
+                cache_port=self.get_cache_params()['PORT'],
+                solr_host=self.get_solr_params()['HOST'],
+                solr_port=self.get_solr_params()['PORT']
             )
         self.scripts = self.services.values()
         print self.scripts
@@ -229,6 +234,21 @@ class ConsulProvisioner(ScriptProvisioner):
         self.logger.info('Provisioned Redis with, {}:{}'.format(host, port))
         return dict(HOST=host, PORT=port)
 
+    def get_solr_params(self):
+        """
+        finds the parameters necessary to connect to the solr instance.
+        :return: string uri of the solr instance
+        """
+        try:
+            host = '172.17.42.1'
+            port = self.requirements['solr'].running_port
+        except KeyError:
+            host = 'localhost'
+            port = 8983
+
+        self.logger.info('Provisioned Solr with, {}:{}'.format(host, port))
+        return dict(HOST=host, PORT=port)
+
 
 class SolrProvisioner(ScriptProvisioner):
     """
@@ -241,26 +261,29 @@ class SolrProvisioner(ScriptProvisioner):
 
         super(SolrProvisioner, self).__init__(scripts=None, shell=True)
 
-        self._KNOWN_SERVICES = self.known_services()
         self.processes = OrderedDict()
 
         services = [services] if isinstance(services, basestring) else services
-        if set(services).difference(self._KNOWN_SERVICES):
-            raise UnknownServiceError(
-                "{}".format(
-                    set(services).difference(self._KNOWN_SERVICES)))
 
         self.services = OrderedDict()
         engine = create_jinja2()
         template = engine.get_template('{}/base.solr.template'.format(self.name))
         self.directory = os.path.dirname(template.filename)
+
         for s in services:
+
+            if s not in self.known_services():
+
+                self.logger.warning('[{}] service "{}" is unknown. Skipping provisioning.'.format(self.name, s))
+                continue
+
             self.services[s] = template.render(
                 service=s,
                 host=kwargs['container'].running_host,
                 port=kwargs['container'].running_port,
             )
         self.scripts = self.services.values()
+        self.logger.debug('Solr provisioning: {}'.format(self.scripts))
 
 
 class TestProvisioner(ScriptProvisioner):

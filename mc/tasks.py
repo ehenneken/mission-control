@@ -7,12 +7,12 @@ import datetime
 
 from mc.app import create_celery
 from mc.models import db, Build, Commit
+from mc.config import DOCKER_BRIDGE
 from mc.builders import DockerImageBuilder, DockerRunner, docker_runner_factory, TestRunner
-from mc.utils import get_boto_session
+from mc.utils import get_boto_session, load_yaml_ordered
 from flask import current_app
-from docker import Client
+from docker import Client, errors
 from werkzeug.security import gen_salt
-from collections import OrderedDict
 
 celery = create_celery()
 
@@ -64,6 +64,8 @@ def start_test_environment(test_id=None, config={}):
       - Provision dependency containers, if necessary
       - Run the microservices
       - Run the tests
+    :param test_id: identifier of the test
+    :type test_id: string
     :param config: Config detailing which versions and services to provision
     :type config: dict
     :return: None
@@ -72,55 +74,12 @@ def start_test_environment(test_id=None, config={}):
     if not test_id:
         test_id = gen_salt(5)
 
-    config = OrderedDict(config)
+    if not config:
+        with open('mc/.mc.yml') as yaml_file:
+            config = load_yaml_ordered(yaml_file)
 
-    services = config.setdefault('services', [
-        {
-            'name': 'graphics_service',
-            'repository': 'adsabs',
-            'tag': 'dd905b927323e1ecf2a563a80d2bc5d9d98b62b4'
-        },
-        {
-            'name': 'metrics_service',
-            'repository': 'adsabs',
-            'tag': '36d68b50d46277fb1b6b29e9128e170fe14221c5'
-        },
-        {
-            'name': 'recommender_service',
-            'repository': 'adsabs',
-            'tag': '1d56dd562a9fb18dad615b510f59be622345665e'
-        },
-        {
-            'name': 'adsws',
-            'repository': 'adsabs',
-            'tag': '1412043693c94cbed63b59ba7988c69f5433fc2a'
-        }
-    ])
-
-    dependencies = config.setdefault('dependencies', [
-        {
-            'name': 'redis',
-            'image': 'redis:2.8.21'
-        },
-        {
-            'name': 'postgres',
-            'image': 'postgres:9.3',
-        },
-        {
-            'name': 'solr',
-            'image': 'adsabs/montysolr:v48.1.0.3'
-        },
-        {
-            'name': 'consul',
-            'image': 'adsabs/consul:v1.0.0',
-            'requirements': ['redis', 'postgres']
-        },
-        {
-            'name': 'registrator',
-            'image': 'gliderlabs/registrator:latest',
-            'build_requirements': ['consul']
-        }
-    ])
+    services = config.get('services')
+    dependencies = config.get('dependencies')
 
     containers = {}
 
@@ -141,7 +100,7 @@ def start_test_environment(test_id=None, config={}):
     logger.info('Provisioning cluster dependencies...')
     for d in dependencies:
         containers[d['name']].provision(
-            services=[s['name'].replace('-service', '').replace('_service', '') for s in services],
+            services=[s['name'].replace('-services', '').replace('-service', '').replace('_service', '') for s in services],
             requirements={r: containers[r] for r in d.get('requirements', [])}
         )
         logger.info('... {}'.format(d['image']))
@@ -149,7 +108,7 @@ def start_test_environment(test_id=None, config={}):
     # Required values for services that are based on dependencies
     # We are using the docker0 IP for localhost (of host) in the container
     service_environment = dict(
-        CONSUL_HOST='172.17.42.1',
+        CONSUL_HOST=DOCKER_BRIDGE,
         CONSUL_PORT=containers['consul'].running_port,
         ENVIRONMENT='staging'
     )
@@ -170,14 +129,17 @@ def start_test_environment(test_id=None, config={}):
             service=s['name'],
             tag=s['tag']
         )
-        builder = docker_runner_factory('gunicorn')(
-            image=image,
-            name='{}-{}'.format(s['name'], test_id),
-            environment=service_environment
-        )
-        builder.start()
+        try:
+            builder = docker_runner_factory('gunicorn')(
+                image=image,
+                name='{}-{}'.format(s['name'], test_id),
+                environment=service_environment
+            )
+            builder.start()
+            containers[s['name']] = builder
 
-        containers[s['name']] = builder
+        except errors.NotFound as error:
+            logger.error('Service not found, skipping: {}, {}'.format(s, error))
 
 
 @celery.task()
@@ -205,9 +167,117 @@ def run_test_in_environment(test_id=None, test_services=['adsrex'], **kwargs):
 
     :param test_services: which tests to run
     :type test_services: basestring
+
+    :param kwargs: keyword arguments
     """
     tests = TestRunner(test_id=test_id, test_services=test_services, **kwargs)
     tests.start()
+
+
+@celery.task()
+def run_ci_test(test_id=None, config={}, **kwargs):
+    """
+    Spin up services and dependencies, run continuous integratioh test, tear down services and dependencies.
+    :param test_id: unique identifier
+    :type test_id: basestring
+
+    :param config: Config detailing which versions and services to provision
+    :type config: dict
+
+    :param kwargs: keyword arguments
+    """
+    test_id = gen_salt(5) if not test_id else test_id
+
+    if not config:
+        with open('mc/.mc.yml') as yaml_file:
+            config = load_yaml_ordered(yaml_file)
+
+    services = config.get('services')
+    dependencies = config.get('dependencies')
+    tests = config.get('tests')
+
+    containers = {}
+
+    # Deploy
+    logger.info('Starting cluster dependencies...')
+    for d in dependencies:
+        logger.info('... {}'.format(d['image']))
+
+        builder = docker_runner_factory(image=d['image'])(
+            image=d['image'],
+            name="{}-{}".format(d['name'], test_id),
+            build_requirements={r: containers[r] for r in (d['build_requirements'] if d.get('build_requirements', False) else [])}
+        )
+        builder.start()
+        containers[d['name']] = builder
+
+    # Provision
+    logger.info('Provisioning cluster dependencies...')
+    try:
+        for d in dependencies:
+            containers[d['name']].provision(
+                services=[s['name'].replace('-services', '').replace('-service', '').replace('_service', '') for s in services],
+                requirements={r: containers[r] for r in d.get('requirements', [])}
+            )
+            logger.info('... {}'.format(d['image']))
+
+        # Required values for services that are based on dependencies
+        # We are using the docker0 IP for localhost (of host) in the container
+        service_environment = dict(
+            CONSUL_HOST=DOCKER_BRIDGE,
+            CONSUL_PORT=containers['consul'].running_port,
+            ENVIRONMENT='staging'
+        )
+    except Exception as error:
+        logger.warning('Unexpected error, shutting down ... {}'.format(error))
+        for container, name in containers.iteritems():
+            logger.info('... {}'.format(name))
+            container.teardown()
+
+    logger.info('Starting services...')
+    for s in services:
+
+        logger.info('... {}/{}:{}'.format(
+            s['repository'],
+            s['name'],
+            s['tag']
+        ))
+
+        service_environment['SERVICE'] = s['name']
+
+        image = '{repository}/{service}:{tag}'.format(
+            repository=s['repository'],
+            service=s['name'],
+            tag=s['tag']
+        )
+        try:
+            builder = docker_runner_factory('gunicorn')(
+                image=image,
+                name='{}-{}'.format(s['name'], test_id),
+                environment=service_environment
+            )
+            builder.start()
+            containers[s['name']] = builder
+
+        except errors.NotFound as error:
+            logger.error('Service not found, skipping: {}, {}'.format(s, error))
+
+    # Run the tests
+    try:
+        logger.info('Running tests: {} [ID: {}]'.format(tests, test_id))
+        tests = TestRunner(test_id=test_id, test_services=tests)
+        tests.start()
+    except Exception as error:
+        logger.warning('Unexpected error, continuing to shutdown test: {}'.format(error))
+
+    # Shutdown the test cluster
+    logger.info('Shutting down services and dependencies...')
+    for name, container in containers.iteritems():
+        logger.info('... {}'.format(name))
+        try:
+            container.teardown()
+        except Exception as error:
+            logger.warning('... Could not stop: {} '.format(error))
 
 
 @celery.task()

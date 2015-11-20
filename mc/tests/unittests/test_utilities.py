@@ -2,23 +2,23 @@
 Test utilities
 """
 import os
-import unittest
 import hmac
-import hashlib
 import json
+import mock
+import hashlib
 import datetime
+import unittest
 
-from dateutil.tz import tzoffset, tzlocal
 from mc import app
 from mc.views import GithubListener
 from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError, \
     TimeOutError
 from mc.tests.stubdata.github_webhook_payload import payload, payload_tag
 from mc.models import db, Commit
-from mc.utils import ChangeDir, get_boto_session, timed
-import mock
-
+from mc.utils import ChangeDir, get_boto_session, timed, load_yaml_ordered
+from dateutil.tz import tzoffset, tzlocal
 from flask.ext.testing import TestCase
+from collections import OrderedDict
 
 
 class TestTimed(unittest.TestCase):
@@ -88,7 +88,6 @@ class TestUtilities(unittest.TestCase):
         """
         get_boto_session should call Session with the current app's config
         """
-        instance = Session.return_value
         app_ = app.create_app()
         app_.config['AWS_REGION'] = "unittest-region"
         app_.config['AWS_ACCESS_KEY'] = "unittest-access"
@@ -102,6 +101,37 @@ class TestUtilities(unittest.TestCase):
             aws_secret_access_key="unittest-secret",
             region_name="unittest-region",
         )
+
+    def test_load_yaml_in_ordered_dict(self):
+        """
+        Test can load a YAML file into an OrderedDict correctly
+        """
+
+        yaml = """
+        test:
+          - name: 1
+            tag: 2
+            repo: 3
+          - name: 4
+            tag: 5
+            repo: 6
+        test2:
+          - name: empty
+        """
+
+        loaded_yaml = load_yaml_ordered(stream=yaml)
+        self.assertIsInstance(loaded_yaml, OrderedDict)
+
+        self.assertEqual('test', loaded_yaml.keys()[0])
+        self.assertEqual('test2', loaded_yaml.keys()[1])
+
+        self.assertEqual(loaded_yaml['test'][0]['name'], 1)
+        self.assertEqual(loaded_yaml['test'][0]['tag'], 2)
+        self.assertEqual(loaded_yaml['test'][0]['repo'], 3)
+
+        self.assertEqual(loaded_yaml['test'][1]['name'], 4)
+        self.assertEqual(loaded_yaml['test'][1]['tag'], 5)
+        self.assertEqual(loaded_yaml['test'][1]['repo'], 6)
 
 
 class TestStaticMethodUtilities(TestCase):

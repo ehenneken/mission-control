@@ -1,10 +1,9 @@
 #!/bin/bash
-git clone https://github.com/jonnybazookatone/adsrex.git tmp_adsrex/
+git clone -b develop --single-branch https://github.com/jonnybazookatone/adsrex.git adsrex/
 
-API_URL="http://{{api_host}}:{{api_port}}"
-echo "API_URL = '$API_URL'" > tmp_adsrex/v1_0/local_config.py
+API_BASE="http://{{api_host}}:{{api_port}}"
+echo "API_BASE = '$API_BASE'" > adsrex/v1_0/local_config.py
 
-/usr/local/bin/py.test tmp_adsrex/v1_0
+/usr/local/bin/py.test adsrex/v1_0 > .mc.ci 2> .mc.ci
 
-
-#rm -rf tmp_adsrex/
+rm -rf adsrex/

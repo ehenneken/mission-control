@@ -1,5 +1,12 @@
+"""
+Classes for docker builders
+
+TODO: include some docs here
+"""
+
 from mc.app import create_jinja2
 from mc.utils import timed
+from mc.config import DOCKER_BRIDGE
 from mc.exceptions import BuildError, TimeOutError, UnknownServiceError
 from mc.provisioners import ConsulProvisioner, PostgresProvisioner, SolrProvisioner, TestProvisioner
 from flask import current_app
@@ -14,8 +21,6 @@ import mc.config as config
 import logging
 import tarfile
 import requests
-
-DOCKER_BRIDGE = '172.17.42.1'
 
 
 class ECSBuilder(object):
@@ -588,7 +593,7 @@ class PostgresDockerRunner(DockerRunner):
         image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
 
-        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('mem_limit', '200m')
         kwargs.setdefault('port_bindings', {5432: None})
 
         super(PostgresDockerRunner, self).__init__(image, name, command, **kwargs)
@@ -626,7 +631,7 @@ class SolrDockerRunner(DockerRunner):
         image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
 
-        kwargs.setdefault('mem_limit', '800m')
+        kwargs.setdefault('mem_limit', '2g')
         kwargs.setdefault('port_bindings', {8983: None})
 
         super(SolrDockerRunner, self).__init__(image, name, command, **kwargs)

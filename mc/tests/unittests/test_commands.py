@@ -43,7 +43,7 @@ class TestManageTestCluster(TestCase):
         )
         mocked.assert_called_with(test_id=None)
 
-    @mock.patch('mc.manage.run_test_in_environment')
+    @mock.patch('mc.manage.run_ci_test')
     def test_stop_request(self, mocked):
         """
         Test starting the cluster

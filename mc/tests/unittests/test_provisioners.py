@@ -202,6 +202,19 @@ class TestSolrProvisioner(unittest.TestCase):
             msg='{} does not endwith {}'.format(P.directory, ends_with)
         )
 
+    def test_skip_unknown_service(self):
+        """
+        Test that a service is skipped if it isn't known. This should not stop any of the services being provisioned.
+        """
+        services = ['recommender', 'unknown_service']
+        container = Mock(running_port=8983, running_host='localhost')
+
+        P = SolrProvisioner(services, container=container)
+        self.assertIsInstance(P.services, dict)
+
+        self.assertIn('recommender', P.services.keys())
+        self.assertNotIn('unknown_service', P.services.keys())
+
 
 class TestTestProvisioner(unittest.TestCase):
     """

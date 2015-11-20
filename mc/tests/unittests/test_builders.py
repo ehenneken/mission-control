@@ -544,23 +544,40 @@ class TestSolrDockerRunner(unittest.TestCase):
         with HTTMock(response_404):
             self.assertTrue(self.builder.ready)
 
-    def test_can_provision(self):
+    @mock.patch('mc.builders.PostgresDockerRunner.service_provisioner')
+    def test_can_provision(self, mocked):
         """
         Tests that there is a method that allows provisioning
         """
-        try:
-            self.builder.provision(services=['recommender'])
-        except Exception as e:
-            self.fail('Provisioning failed: {}'.format(e))
+        self.builder.provision(services=['adsaws'])
 
-    def test_does_not_raise_for_non_existing_service(self):
+        mocked.assert_has_calls([
+            mock.call(container=self.builder, requirements=None, services=['adsaws']),
+            mock.call()()
+        ])
+
+    @mock.patch('mc.builders.SolrDockerRunner.service_provisioner')
+    def test_can_provision(self, mocked):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        self.builder.provision(services=['recommender'])
+        mocked.assert_has_calls([
+            mock.call(container=self.builder, requirements=None, services=['recommender']),
+            mock.call()()
+        ])
+
+    @mock.patch('mc.builders.SolrDockerRunner.service_provisioner')
+    def test_does_not_raise_for_non_existing_service(self, mocked):
         """
         Tests that it skips services it does not know about
         """
+        instance = mocked.return_value
         try:
             self.builder.provision(services=['unknown_service'])
         except Exception as e:
             self.fail('Provisioning failed: {}'.format(e))
+        self.assertTrue(instance.called)
 
 
 class TestTestRunner(unittest.TestCase):
