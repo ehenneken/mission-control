@@ -22,6 +22,7 @@ WATCHED_REPOS = [
 ]
 
 # Local dependencies for the testing environment
+DOCKER_BRIDGE = '172.17.42.1'
 DEPENDENCIES = {
     'POSTGRES': {
         'USERNAME': 'postgres',
@@ -39,6 +40,9 @@ DEPENDENCIES = {
     },
     'GUNICORN': {
         'PORT': 80
+    },
+    'REGISTRATOR': {
+        'IMAGE': 'gliderlabs/registrator:latest'
     },
     'SOLR': {
         'PORT': 8983,
@@ -73,3 +77,4 @@ MC_LOGGING = {
 }
 
 SQLALCHEMY_DATABASE_URI = 'sqlite://'
+SQLALCHEMY_TRACK_MODIFICATIONS = False

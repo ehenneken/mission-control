@@ -6,7 +6,7 @@ import unittest
 
 from mc import config
 from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner, \
-    RedisDockerRunner, GunicornDockerRunner, SolrDockerRunner
+    RedisDockerRunner, GunicornDockerRunner, RegistratorDockerRunner, SolrDockerRunner
 from werkzeug.security import gen_salt
 
 
@@ -85,7 +85,7 @@ class TestBaseDockerRunner(unittest.TestCase):
         except:
             pass
 
-    def helper_test_is_ready(self):
+    def helper_is_service_ready(self):
         """
         Check if the instance is ready
         """
@@ -243,6 +243,34 @@ class TestGunicornDockerRunner(unittest.TestCase):
         self.assertFalse(self.builder.running)
 
 
+class TestRegistratorDockerRunner(TestBaseDockerRunner):
+    """
+    Test the docker runner for the Registrator service
+    """
+
+    def setUp(self):
+        self.name = 'livetest-registrator-{}'.format(gen_salt(5))
+        self.builder = RegistratorDockerRunner(
+            image='gliderlabs/registrator:latest',
+            name=self.name,
+        )
+
+    def tearDown(self):
+        """
+        teardown the containers
+        """
+        try:
+            self.builder.teardown()
+        except:
+            pass
+
+    def test_is_ready(self):
+        """
+        Check if the instance is ready
+        """
+        self.helper_is_service_ready()
+
+
 class TestSolrDockerRunner(TestBaseDockerRunner):
     """
     Test the docker runner for the Solr service
@@ -258,4 +286,5 @@ class TestSolrDockerRunner(TestBaseDockerRunner):
         """
         Check if the instance is ready
         """
-        self.helper_test_is_ready()
+        self.helper_is_service_ready()
+

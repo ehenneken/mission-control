@@ -201,6 +201,7 @@ class TestDockerRunner(unittest.TestCase):
                 u'Status': u'Up About a minute'
             }
         ]
+        instance.create_host_config.return_value = {'NetworkMode': 'host', "Memory": 104857600}
         self.instance = instance
         self.builder = DockerRunner(
             image='redis',
@@ -220,7 +221,8 @@ class TestDockerRunner(unittest.TestCase):
             host_config={'NetworkMode': 'host', "Memory": 104857600},
             name='redis',
             image='redis',
-            command=None
+            command=None,
+            environment=None
         )
         self.instance.pull.assert_called_with('redis')
 
@@ -319,7 +321,7 @@ class TestConsulDockerRunner(unittest.TestCase):
         self.builder.provision(services=['adsaws'])
 
         mocked_consul_runner.assert_has_calls([
-            mock.call(services=['adsaws'], container=self.builder),
+            mock.call(services=['adsaws'], container=self.builder, requirements=None),
             mock.call()()
         ])
 
@@ -372,7 +374,7 @@ class TestPostgresDockerRunner(unittest.TestCase):
         self.builder.provision(services=['adsaws'])
 
         mocked.assert_has_calls([
-            mock.call(container=self.builder, services=['adsaws']),
+            mock.call(container=self.builder, requirements=None, services=['adsaws']),
             mock.call()()
         ])
 
@@ -448,8 +450,32 @@ class TestGunicornDockerRunner(unittest.TestCase):
                 u'Status': u'Up About a minute'
             }
         ]
+        instance.create_host_config.return_value = {'PortBindings': {
+                '80/tcp': [{'HostPort': '', 'HostIp': ''}]
+            }, 'NetworkMode': 'host'}
+
         self.instance = instance
-        self.builder = GunicornDockerRunner(network_mode="host")
+        self.environment = dict(consul_host='localhost', consul_port=8500)
+        self.builder = GunicornDockerRunner(network_mode="host",
+                                            environment=self.environment)
+
+    def test_can_set_consul(self):
+        """
+        Tests that consul properties get passed correctly
+        """
+        expected_call = mock.call(
+            command=None,
+            image=None,
+            name=None,
+            environment={'consul_host': 'localhost', 'consul_port': 8500},
+            host_config={'PortBindings': {
+                '80/tcp': [{'HostPort': '', 'HostIp': ''}]
+            }, 'NetworkMode': 'host'}
+        )
+
+        self.instance.create_container.assert_has_calls(
+            [expected_call]
+        )
 
     def test_ready(self):
         """
@@ -518,23 +544,40 @@ class TestSolrDockerRunner(unittest.TestCase):
         with HTTMock(response_404):
             self.assertTrue(self.builder.ready)
 
-    def test_can_provision(self):
+    @mock.patch('mc.builders.PostgresDockerRunner.service_provisioner')
+    def test_can_provision(self, mocked):
         """
         Tests that there is a method that allows provisioning
         """
-        try:
-            self.builder.provision(services=['recommender'])
-        except Exception as e:
-            self.fail('Provisioning failed: {}'.format(e))
+        self.builder.provision(services=['adsaws'])
 
-    def test_does_not_raise_for_non_existing_service(self):
+        mocked.assert_has_calls([
+            mock.call(container=self.builder, requirements=None, services=['adsaws']),
+            mock.call()()
+        ])
+
+    @mock.patch('mc.builders.SolrDockerRunner.service_provisioner')
+    def test_can_provision(self, mocked):
+        """
+        Tests that there is a method that allows provisioning
+        """
+        self.builder.provision(services=['recommender'])
+        mocked.assert_has_calls([
+            mock.call(container=self.builder, requirements=None, services=['recommender']),
+            mock.call()()
+        ])
+
+    @mock.patch('mc.builders.SolrDockerRunner.service_provisioner')
+    def test_does_not_raise_for_non_existing_service(self, mocked):
         """
         Tests that it skips services it does not know about
         """
+        instance = mocked.return_value
         try:
             self.builder.provision(services=['unknown_service'])
         except Exception as e:
             self.fail('Provisioning failed: {}'.format(e))
+        self.assertTrue(instance.called)
 
 
 class TestTestRunner(unittest.TestCase):

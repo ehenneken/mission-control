@@ -1,10 +1,16 @@
+"""
+Classes for docker builders
+
+TODO: include some docs here
+"""
+
 from mc.app import create_jinja2
 from mc.utils import timed
+from mc.config import DOCKER_BRIDGE
 from mc.exceptions import BuildError, TimeOutError, UnknownServiceError
 from mc.provisioners import ConsulProvisioner, PostgresProvisioner, SolrProvisioner, TestProvisioner
 from flask import current_app
 from docker import Client
-from docker.utils import create_host_config
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine
 from redis import Redis, ConnectionError
@@ -257,11 +263,12 @@ class DockerRunner(object):
     """
     service_name = None
 
-    def __init__(self, image, name, command=None, **kwargs):
+    def __init__(self, image, name, command=None, environment=None, **kwargs):
         """
         :param image: full name of the docker image to pull
         :param name: name of the container in `docker run --name`
         :param command: command for the container in `docker run <> command`
+        :param enviroment: environment variables in the container
         :param mem_limit: Memory limit to enforce on the container
         :param kwargs: keyword args to pass direclty to
             docker.utils.create_host_config
@@ -269,20 +276,24 @@ class DockerRunner(object):
         self.image = image
         self.name = name
         self.command = command
-        self.host_config = create_host_config(**kwargs)
+        self.environment = environment
         self.running_properties = None
         self.time_out = 30
         self.pull = kwargs.get('pull', True)
         self.running_port = None
         self.running_host = None
-
         self.client = Client(version='auto')
+
+        kwargs.pop('build_requirements', '')
+        self.host_config = self.client.create_host_config(**kwargs)
         self.container = None
+
         try:
             self.logger = current_app.logger
         except RuntimeError:  # Outside of application context
             self.logger = logging.getLogger("{}-builder".format(self.name))
             self.logger.setLevel(logging.DEBUG)
+
         self.setup()
 
     def setup(self):
@@ -301,7 +312,8 @@ class DockerRunner(object):
             image=self.image,
             host_config=self.host_config,
             name=self.name,
-            command=self.command
+            command=self.command,
+            environment=self.environment
         )
         self.logger.debug("Created container {}".format(self.container['Id']))
 
@@ -373,20 +385,24 @@ class DockerRunner(object):
             self.running_properties = running_properties
 
             if self.service_name:
-                running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
-
-                self.running_host = running[0]['HostIp']
-                self.running_port = running[0]['HostPort']
+                try:
+                    running = self.client.port(self.container, config.DEPENDENCIES[self.service_name.upper()]['PORT'])
+                    self.running_host = running[0]['HostIp']
+                    self.running_port = running[0]['HostPort']
+                except KeyError:
+                    pass
 
             return True
 
-    def provision(self, services):
+    def provision(self, services, requirements=None):
         """
         Run the provisioner of this class for a set of services
         :param services: list of services
         """
         if hasattr(self, 'service_provisioner'):
-            provisioner = self.service_provisioner(services=services, container=self)
+            provisioner = self.service_provisioner(services=services,
+                                                   container=self,
+                                                   requirements=requirements)
             provisioner()
 
 
@@ -432,10 +448,24 @@ class GunicornDockerRunner(DockerRunner):
 
     service_name = 'gunicorn'
 
-    def __init__(self, image=None, name=None, command=None, **kwargs):
+    def __init__(self, image=None, name=None, command=None, environment=None, **kwargs):
+
+        gunicorn_environment = {
+            'CONSUL_HOST': DOCKER_BRIDGE,
+            'CONSUL_PORT': kwargs.get('consul_port', 8500),
+            'SERVICE': kwargs.get('service_name', 'generic_service'),
+            'ENVIRONMENT': kwargs.get('service_environment', 'staging')
+        }
 
         kwargs.setdefault('port_bindings', {80: None})
-        super(GunicornDockerRunner, self).__init__(image, name, command, **kwargs)
+        kwargs.setdefault('dns', [DOCKER_BRIDGE])
+        super(GunicornDockerRunner, self).__init__(
+            image,
+            name,
+            command,
+            environment=gunicorn_environment if not environment else environment,
+            **kwargs
+        )
 
     @property
     def ready(self):
@@ -457,13 +487,16 @@ class GunicornDockerRunner(DockerRunner):
 
         if response.status_code == 200:
             return True
-        else:
+        elif response.status_code >= 500:
             return False
+        else:
+            self.logger.warning('Unexpected error code from {}: {}'.format(self.image, response.status_code))
+            return True
 
 
 class ConsulDockerRunner(DockerRunner):
     """
-    Wrapper for redis specific commands
+    Wrapper for consul specific commands
     """
 
     service_name = 'consul'
@@ -472,11 +505,12 @@ class ConsulDockerRunner(DockerRunner):
     def __init__(self, image=None, name=None, command=None, **kwargs):
 
         image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
         command = ['-server', '-bootstrap'] if not command else command
 
         kwargs.setdefault('mem_limit', '50m')
-        kwargs.setdefault('port_bindings', {8500: None})
+        kwargs.setdefault('port_bindings', {8500: None, '53/tcp': 53, '53/udp': 53})
 
         super(ConsulDockerRunner, self).__init__(image, name, command, **kwargs)
 
@@ -507,9 +541,48 @@ class ConsulDockerRunner(DockerRunner):
             return False
 
 
+class RegistratorDockerRunner(DockerRunner):
+    """
+    Wrapper for registrator specific commands
+    """
+
+    service_name = 'registrator'
+
+    def __init__(self, image=None, name=None, command=None, **kwargs):
+
+        image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
+        name = self.service_name if not name else name
+        requirements = kwargs.pop('build_requirements', {})
+        try:
+            consul = requirements['consul']
+            consul_port = consul.running_port
+        except KeyError:
+            consul_port = 8500
+        command = ['-ip', DOCKER_BRIDGE, '-resync', '10', 'consul://{}:{}'.format(DOCKER_BRIDGE, consul_port), '-bootstrap'] if not command else command
+
+        binds = {
+            '/var/run/docker.sock': {
+                'bind': '/tmp/docker.sock',
+                'mode': 'rw',
+            }
+        }
+
+        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('binds', binds)
+
+        super(RegistratorDockerRunner, self).__init__(image, name, command, **kwargs)
+
+    @property
+    def ready(self):
+        """
+        No ready function
+        """
+        return self.running
+
+
 class PostgresDockerRunner(DockerRunner):
     """
-    Wrapper for redis specific commands
+    Wrapper for postgres specific commands
     """
 
     service_name = 'postgres'
@@ -520,7 +593,7 @@ class PostgresDockerRunner(DockerRunner):
         image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
 
-        kwargs.setdefault('mem_limit', '50m')
+        kwargs.setdefault('mem_limit', '200m')
         kwargs.setdefault('port_bindings', {5432: None})
 
         super(PostgresDockerRunner, self).__init__(image, name, command, **kwargs)
@@ -558,7 +631,7 @@ class SolrDockerRunner(DockerRunner):
         image = config.DEPENDENCIES[self.service_name.upper()]['IMAGE'] if not image else image
         name = self.service_name if not name else name
 
-        kwargs.setdefault('mem_limit', '800m')
+        kwargs.setdefault('mem_limit', '2g')
         kwargs.setdefault('port_bindings', {8983: None})
 
         super(SolrDockerRunner, self).__init__(image, name, command, **kwargs)
@@ -589,13 +662,13 @@ class SolrDockerRunner(DockerRunner):
         else:
             return False
 
-    def provision(self, services):
+    def provision(self, services, requirements=None):
         """
         Override default provisioning behaviour to skip services that are unknown.
         :param services: list of services
         """
         try:
-            super(SolrDockerRunner, self).provision(services)
+            super(SolrDockerRunner, self).provision(services=services, requirements=requirements)
         except UnknownServiceError as error:
             self.logger.warning('Skipping unknown service: {}'.format(error))
             pass
@@ -617,6 +690,7 @@ def docker_runner_factory(image):
         'redis': RedisDockerRunner,
         'consul': ConsulDockerRunner,
         'postgres': PostgresDockerRunner,
+        'registrator': RegistratorDockerRunner,
         'solr': SolrDockerRunner
     }
 

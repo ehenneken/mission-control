@@ -1,0 +1,2 @@
+1	u1	{ppr1,ppr1,ppr1,ppr1,ppr1,ppr1,ppr1,ppr1,ppr1,ppr1,ppr1,ppr1,ppr1,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2}
+2	u2	{ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr2,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3,ppr3}

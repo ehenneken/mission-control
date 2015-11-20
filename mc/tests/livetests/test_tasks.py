@@ -7,12 +7,12 @@ import requests
 import unittest
 
 from mc.tasks import start_test_environment, stop_test_environment, run_test_in_environment
-from mc.config import DEPENDENCIES
 from mc.builders import GunicornDockerRunner
-from docker import Client
+from docker import Client, errors
 from consulate import Consul
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
+from collections import OrderedDict
 
 
 class TestTestEnvironment(unittest.TestCase):
@@ -24,37 +24,41 @@ class TestTestEnvironment(unittest.TestCase):
         """
         Define what we want to start
         """
-        self.config = {
-            'dependencies': [
-                {
-                    "name": "redis",
-                    "image": DEPENDENCIES['REDIS']['IMAGE'],
-                    "callback": None,
-                },
-                {
-                    "name": "consul",
-                    "image": DEPENDENCIES['CONSUL']['IMAGE'],
-                    "callback": None,
-                },
-                {
-                    "name": "postgres",
-                    "image": DEPENDENCIES['POSTGRES']['IMAGE'],
-                    "callback": None,
-                },
-                {
-                    "name": "solr",
-                    "image": DEPENDENCIES['SOLR']['IMAGE'],
-                    "callback": None
-                }
-            ],
-            'services': [
+
+        self.config = OrderedDict({})
+
+        services = self.config.setdefault('services', [
                 {
                     'name': 'adsws',
                     'repository': 'adsabs',
                     'tag': '0596971c755855ff3f9caed2f96af7f9d5792cc2'
                 }
-            ]
-        }
+            ])
+
+        dependencies = self.config.setdefault('dependencies', [
+            {
+                'name': 'redis',
+                'image': 'redis:2.8.21'
+            },
+            {
+                'name': 'postgres',
+                'image': 'postgres:9.3',
+            },
+            {
+                'name': 'solr',
+                'image': 'adsabs/montysolr:v48.1.0.3'
+            },
+            {
+                'name': 'consul',
+                'image': 'adsabs/consul:v1.0.0',
+                'requirements': ['redis', 'postgres']
+            },
+            {
+                'name': 'registrator',
+                'image': 'gliderlabs/registrator:latest',
+                'build_requirements': ['consul']
+            }
+        ])
 
     def tearDown(self):
         """
@@ -91,10 +95,15 @@ class TestTestEnvironment(unittest.TestCase):
         :return: dictionary
         """
         cli = Client(base_url='unix://var/run/docker.sock')
+        print cli.containers
         container_id = [i for i in cli.containers() if name in i['Image']][0]['Id']
-        info = cli.port(container_id, port)[0]
-        container_port = info['HostPort']
-        container_host = info['HostIp']
+        if port:
+            info = cli.port(container_id, port)[0]
+            container_port = info['HostPort']
+            container_host = info['HostIp']
+        else:
+            container_host = '127.0.0.1'
+            container_port = None
 
         return dict(port=container_port, host=container_host, id=container_id)
 
@@ -106,15 +115,16 @@ class TestTestEnvironment(unittest.TestCase):
         :type name: basestring
         """
         cli = Client(base_url='unix://var/run/docker.sock')
+        print cli.containers()
         container = [i for i in cli.containers() if name in i['Image']][0]
         container_id = container['Id']
-        container_name = container['Names'][0]
+        container_name = container['Names'][0].replace('/', '')
 
         try:
             cli.stop(container_id)
             cli.remove_container(container_name)
-        except Exception:
-            pass
+        except Exception as err:
+            print err
 
     def test_start_test_environment_task(self):
         """
@@ -131,14 +141,6 @@ class TestTestEnvironment(unittest.TestCase):
             rs.client_list()
         except redis.ConnectionError as e:
             self.fail('Redis cache has not started: {}'.format(e))
-
-        # Check consul is running
-        consul_info = self.helper_get_container_values('consul', 8500)
-        session = Consul(host=consul_info['host'], port=consul_info['port'])
-        self.assertEqual(
-            session.kv.get('config/adsws/staging/DEBUG'),
-            "false"
-        )
 
         # Check postgres is running
         postgres_info = self.helper_get_container_values('postgres', 5432)
@@ -164,18 +166,48 @@ class TestTestEnvironment(unittest.TestCase):
             404
         )
 
+        # Check consul is running
+        consul_info = self.helper_get_container_values('consul', 8500)
+        session = Consul(host=consul_info['host'], port=consul_info['port'])
+        self.assertEqual(
+            session.kv.get('config/adsws/staging/DEBUG'),
+            "false"
+        )
+
+        self.assertEqual(
+            session.kv.get('config/adsws/staging/SQLALCHEMY_DATABASE_URI'),
+            '"postgresql+psycopg2://postgres:@{}:{}/adsws"'.format(
+                '172.17.42.1',
+                postgres_info['port']
+            )
+        )
+
+        # Check registrator is running
+        registrator_info = self.helper_get_container_values('registrator', None)
+
     def test_stop_test_environment_task(self):
         """
         Test that stop task stops a running test environment
         """
 
         test_id = '34fe32fdsfdsxxx'
-
         docker = Client(version='auto')
-        container = docker.create_container(
-            image='adsabs/pythonsimpleserver:v1.0.0',
-            name='livetest-pythonserver-{}'.format(test_id),
-        )
+        image = 'adsabs/pythonsimpleserver:v1.0.0'
+
+        try:
+            container = docker.create_container(
+                image=image,
+                name='livetest-pythonserver-{}'.format(test_id),
+            )
+        except errors.NotFound:
+            docker.pull(image)
+            container = docker.create_container(
+                image='adsabs/pythonsimpleserver:v1.0.0',
+                name='livetest-pythonserver-{}'.format(test_id),
+            )
+        except Exception as error:
+            self.fail('Unknown exception: {}'.format(error))
+
         docker.start(container=container['Id'])
 
         stop_test_environment(test_id=test_id)

@@ -1,4 +1,4 @@
 #!/bin/bash
-
-article_content=`cat {{service}}/{{service}}.json`
-curl {{host}}:{{port}}/solr/update/json?commit=true -H 'Content-type: application/json' -d "$article_content"
+article_content=`cat {{service}}/{{service}}.json | tr '\n' ' '`
+curl "http://{{host}}:{{port}}/solr/update/json?commit=true" -H 'Content-type: application/json' -d "$article_content"
+curl "http://{{host}}:{{port}}/solr/query?q=warm_cache(foo)"

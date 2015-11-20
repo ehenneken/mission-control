@@ -1,2 +1,9 @@
-API_URL="http://{{api_host}}:{{api_port}}"
-curl $API_URL
+#!/bin/bash
+git clone -b develop --single-branch https://github.com/jonnybazookatone/adsrex.git adsrex/
+
+API_BASE="http://{{api_host}}:{{api_port}}"
+echo "API_BASE = '$API_BASE'" > adsrex/v1_0/local_config.py
+
+/usr/local/bin/py.test adsrex/v1_0 > .mc.ci 2> .mc.ci
+
+rm -rf adsrex/

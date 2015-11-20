@@ -3,22 +3,29 @@
 /usr/bin/python -c "
 import json
 import consulate
-
-def configure_database(value):
-    if type(value) != basestring or not 'DB_HOST' in value:
-        return value
-
-    value = value.replace('DB_HOST', '{{db_host}}').replace('DB_PORT', {{db_port}})
-    return value
+from jinja2 import Template
 
 # Load configuration file from JSON
 with open('{{service}}/{{service}}.config.json') as json_file:
-    config = json.load(json_file)
+    template = Template(json_file.read())
+
+# Render template
+json_config = template.render(
+    db_host='{{db_host}}',
+    db_port={{db_port}},
+    cache_host='{{cache_host}}',
+    cache_port={{cache_port}},
+    solr_host='{{solr_host}}',
+    solr_port='{{solr_port}}'
+)
+
+# Convert from JSON
+config = json.loads(json_config)
 
 # Connect to consul
 consul = consulate.Consul(host='0.0.0.0', port={{port}})
 
 # Load key/values from the configuration into the consul key/value store
 for key, value in config.iteritems():
-    consul.kv.set(key, configure_database(value))
+    consul.kv.set(key, value)
 "

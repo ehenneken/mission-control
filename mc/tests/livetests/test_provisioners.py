@@ -3,7 +3,9 @@ Test provisioners.py
 """
 from mc.provisioners import PostgresProvisioner, ConsulProvisioner, TestProvisioner, SolrProvisioner
 from mc.builders import DockerRunner, ConsulDockerRunner, PostgresDockerRunner, \
-    GunicornDockerRunner, SolrDockerRunner
+        GunicornDockerRunner, SolrDockerRunner
+
+from jinja2 import Template
 from werkzeug.security import gen_salt
 from sqlalchemy import create_engine
 
@@ -77,11 +79,21 @@ class TestConsulProvisioner(unittest.TestCase):
         )
 
         with open(config_file) as json_file:
-            config = json.load(json_file)
+            template = Template(json_file.read())
+
+        json_config = template.render(
+            db_host='localhost',
+            db_port=5432,
+            cache_host='localhost',
+            cache_port=6379
+        )
+
+        config = json.loads(json_config)
 
         # Compare with consul
         consul = consulate.Consul(port=self.port)
         for key in config:
+
             self.assertIn(key, consul.kv.keys())
             self.assertEqual(
                 config[key],
@@ -92,6 +104,24 @@ class TestConsulProvisioner(unittest.TestCase):
                     consul.kv.get(key)
                 )
             )
+
+        cache = consul.kv.get('config/adsws/staging/CACHE')
+        self.assertIn(
+            'localhost',
+            cache,
+        )
+        self.assertIn(
+            '6379',
+            cache,
+        )
+
+        db_uri = consul.kv.get('config/adsws/staging/SQLALCHEMY_DATABASE_URI')
+        self.assertEqual(
+            db_uri,
+            '"postgresql+psycopg2://postgres:@localhost:5432/adsws"',
+            msg='Provisioning is not working: {} != '
+                'postgresql+psycopg2://postgres:@localhost:5432/adsws'.format(db_uri)
+        )
 
 
 class TestPostgresProvisioner(unittest.TestCase):
@@ -277,12 +307,21 @@ class TestSolrProvisioner(unittest.TestCase):
             )
 
             actual_document = response.json()['response']['docs'][0]
-            for key in document:
-                self.assertIn(key, document.keys())
+
+            # Not all key/values are returned in the same fashion, so the following specified are some hand-picked
+            # keywords that we want to test were entered correctly into Solr
+            known_keys = ['pubdate', 'first_author', 'abstract', 'read_count', 'doctype', 'year', 'bibcode', 'volume']
+
+            for key in known_keys:
+                self.assertIn(
+                    key,
+                    actual_document.keys(),
+                    msg='Could not find key "{}" in response: {}'.format(key, actual_document.keys())
+                )
                 self.assertEqual(
                     document[key],
                     actual_document[key],
-                    msg='Key {} mismatch: expected {} != actual {}'.format(
+                    msg='Key "{}" mismatch: expected "{}" != actual "{}"'.format(
                         key,
                         document[key],
                         actual_document[key]

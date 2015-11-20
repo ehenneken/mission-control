@@ -227,6 +227,7 @@ COPY oauth2client (name, description, website, user_id, client_id, client_secret
 vis-services			10	S7gjLuoxOCOwyUq61mGcBTSatWHn4szdiAkQR5HX	kUhD20d5gwrxifV5vS6VOphpeYUsWUqAJQroCOzK	t	t	\N	\N	\N
 recommender@ads			28	WM9EQpxThNBAMyZaTRDxi5OSkOwNto1lv57INGaX	CgtzeKUDBgwZkPBq2yOeQfgSlwVxEkfUSGCfBX2i	t	t	\N	\N	\N
 biblib@ads			31	Q6TRJuAD23ZzyaQ94C3qvSCg3Gk7qKTKrxtB1NU6	CgtzeKUDBgwZkPBq2yOeQfgSlwVxEkfUSGCfBX2i	t	t	\N	\N	\N
+tester@ads			59	Sy6NLN5wgOs0f0oUBBbw4H6WvndmMcW7yL3LJ2i7	zvNuQqYkjbJUVBEcty8xonx7GiKwYpSNvEaDdw1P	t	t	\N	\N	\N
 \.
 
 
@@ -238,6 +239,7 @@ COPY oauth2token (id, client_id, user_id, token_type, access_token, refresh_toke
 173	WM9EQpxThNBAMyZaTRDxi5OSkOwNto1lv57INGaX	28	bearer	jzMwX8vaoR20hAu3y24fomOf3BUXUpktElScaLnp	anR42y2ccQ9zawiwBBbUZ5SeVvGKMALfu8395zeC	2050-01-01 00:00:00	api	t	t
 26	S7gjLuoxOCOwyUq61mGcBTSatWHn4szdiAkQR5HX	10	bearer	hWxXLcxRHgjER10GXJrScYeCmpOsvcBEP8i7FIFS	V3ICtceIqRvNuR9TnHTFR3gfzHdEWbZblB1yuNkj	2050-01-01 00:00:00	api	t	t
 192	Q6TRJuAD23ZzyaQ94C3qvSCg3Gk7qKTKrxtB1NU6	31	bearer	D58JjURMLIPEzqfYNyKeqG1kR8O6AjV4pW4njdBV	LkJeTR9fyYitVNPYcnPZHEF2d0kw2scuipRxDyf6	2050-01-01 00:00:00	ads:internal api	t	t
+182	Sy6NLN5wgOs0f0oUBBbw4H6WvndmMcW7yL3LJ2i7	59	bearer	Jh5ehrzFtEl2OCoF1DEMCU1ubJlASqlyfKgwGoQ4	YIqGTvLZ9s1XYkLL1PTgzBGpld2iJVkLV2c84FVC	2050-01-01 00:00:00	user store-query execute-query store-preferences	t	t
 \.
 
 
@@ -280,6 +282,7 @@ COPY users (id, email, password, name, active, confirmed_at, last_login_at, logi
 10	vis-services@ads	\N	\N	\N	\N	\N	\N	\N	1000
 28	recommender@ads	\N	\N	\N	\N	\N	\N	\N	\N
 31	biblib@ads	\N	\N	\N	\N	\N	\N	\N	1000
+59	tester@ads	\N	\N	t	\N	\N	\N	\N	\N
 \.
 
 

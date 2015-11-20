@@ -7,7 +7,8 @@ from mc import app
 from mc.models import db, Commit, Build
 from mc.tasks import register_task_revision, build_docker, update_service, \
     start_test_environment, stop_test_environment, run_test_in_environment, \
-    run_task
+    run_ci_test, run_task
+
 import datetime
 
 
@@ -19,6 +20,7 @@ class TestTestEnvironment(TestCase):
         return app.create_app()
 
     @patch('mc.builders.SolrDockerRunner')
+    @patch('mc.builders.RegistratorDockerRunner')
     @patch('mc.builders.GunicornDockerRunner')
     @patch('mc.builders.PostgresDockerRunner')
     @patch('mc.builders.ConsulDockerRunner')
@@ -28,6 +30,7 @@ class TestTestEnvironment(TestCase):
                                   mocked_consul_runner,
                                   mocked_postgres_runner,
                                   mocked_gunicorn_runner,
+                                  mocked_registrator_runner,
                                   mocked_solr_runner
                                   ):
         """
@@ -53,19 +56,24 @@ class TestTestEnvironment(TestCase):
                 "image": "postgres:9.3",
             },
             {
+                "name": "registrator",
+                "image": "gliderlabs/registrator:latest"
+            },
+            {
                 "name": "solr",
                 "image": "adsabs/montysolr:v48.1.0.3"
             },
             {
                 "name": "consul",
                 "image": "adsabs/consul:v1.0.0",
-            },
+            }
         ])
 
         instance_gunicorn_runner = mocked_gunicorn_runner.return_value
         instance_redis_runner = mocked_redis_runner.return_value
         instance_consul_runner = mocked_consul_runner.return_value
         instance_postgres_runner = mocked_postgres_runner.return_value
+        instance_registrator_runner = mocked_registrator_runner.return_value
         instance_solr_runner = mocked_solr_runner.return_value
 
         instance_list = [
@@ -73,12 +81,16 @@ class TestTestEnvironment(TestCase):
             instance_redis_runner,
             instance_consul_runner,
             instance_postgres_runner,
+            instance_registrator_runner,
             instance_solr_runner
         ]
 
         for instance in instance_list:
             instance.start.return_value = None
             instance.provision.return_value = None
+
+        instance_registrator_runner.start.return_value = None
+        instance_registrator_runner.provision.return_value = None
 
         start_test_environment(test_id=None, config=config)
 
@@ -111,11 +123,16 @@ class TestTestEnvironment(TestCase):
             }
         ]
         instance.stop.return_value = None
+        instance.remove_container.return_value = None
 
         stop_test_environment(test_id='livetest')
 
         instance.stop.assert_has_calls([
-            call(u'mocked')
+            call(container=u'mocked')
+        ])
+
+        instance.remove_container.assert_has_calls([
+            call(container=u'mocked')
         ])
 
     @patch('mc.tasks.TestRunner.service_provisioner')
@@ -131,6 +148,110 @@ class TestTestEnvironment(TestCase):
         instance.assert_has_calls([
             call(),
         ])
+
+    @patch('mc.tasks.TestRunner.service_provisioner')
+    @patch('mc.builders.SolrDockerRunner')
+    @patch('mc.builders.RegistratorDockerRunner')
+    @patch('mc.builders.GunicornDockerRunner')
+    @patch('mc.builders.PostgresDockerRunner')
+    @patch('mc.builders.ConsulDockerRunner')
+    @patch('mc.builders.RedisDockerRunner')
+    def test_can_start_run_stop_all(self,
+                                    mocked_redis_runner,
+                                    mocked_consul_runner,
+                                    mocked_postgres_runner,
+                                    mocked_gunicorn_runner,
+                                    mocked_registrator_runner,
+                                    mocked_solr_runner,
+                                    mocked_test_runner
+                                    ):
+        """
+        Tests the spin up, running of tests, and tear down of the test environment
+
+        This test is a bit overkill, but just in case the running task changes differently to the sub commands, the full
+        test is included here.
+        """
+
+        # START THE DEPENDENCIES AND SERVICES
+        config = {}
+        services = config.setdefault('services', [
+                {
+                    'name': 'adsws',
+                    'repository': 'adsabs',
+                    'tag': '0596971c755855ff3f9caed2f96af7f9d5792cc2'
+                }
+            ])
+
+        config.setdefault('dependencies', [
+            {
+                "name": "redis",
+                "image": "redis:2.8.9",
+            },
+            {
+                "name": "postgres",
+                "image": "postgres:9.3",
+            },
+            {
+                "name": "registrator",
+                "image": "gliderlabs/registrator:latest"
+            },
+            {
+                "name": "solr",
+                "image": "adsabs/montysolr:v48.1.0.3"
+            },
+            {
+                "name": "consul",
+                "image": "adsabs/consul:v1.0.0",
+            }
+        ])
+
+        config.setdefault('tests', [
+            'adsrex'
+        ])
+
+        instance_gunicorn_runner = mocked_gunicorn_runner.return_value
+        instance_redis_runner = mocked_redis_runner.return_value
+        instance_consul_runner = mocked_consul_runner.return_value
+        instance_postgres_runner = mocked_postgres_runner.return_value
+        instance_registrator_runner = mocked_registrator_runner.return_value
+        instance_solr_runner = mocked_solr_runner.return_value
+
+        instance_list = [
+            instance_gunicorn_runner,
+            instance_redis_runner,
+            instance_consul_runner,
+            instance_postgres_runner,
+            instance_registrator_runner,
+            instance_solr_runner
+        ]
+
+        for instance in instance_list:
+            instance.start.return_value = None
+            instance.provision.return_value = None
+            instance.teardown.return_value = None
+
+        run_ci_test(test_id='unittests', config=config)
+
+        for instance in instance_list:
+
+            self.assertTrue(
+                instance.start.called,
+                msg='Instance {} was not called'.format(instance)
+            )
+            instance.provision.has_calls(
+                [call(callback=s['name']) for s in services]
+            )
+
+        # RUN TESTS
+        mocked_test_runner.assert_has_calls([
+            call(services=['adsrex']), call()()
+        ])
+
+        # STOP AND REMOVE CONTAINERS
+        for instance in instance_list:
+            self.assertTrue(
+                instance.teardown.called
+            )
 
 
 class TestRegisterTaskDefinition(TestCase):
@@ -193,6 +314,7 @@ class TestUpdateService(TestCase):
         session.client.assert_called_with('ecs')
         client.update_service.assert_called_with(**kwargs)
 
+
 class TestRunTask(TestCase):
     """
     Test the run task
@@ -210,12 +332,13 @@ class TestRunTask(TestCase):
         client = session.client.return_value
         kwargs = dict(
             cluster="unittest-cluster",
-            desiredCount=1,
+            count=1,
             taskDefinition='{"valid": "json"}',
         )
         run_task(**kwargs)
         session.client.assert_called_with('ecs')
         client.run_task.assert_called_with(**kwargs)
+
 
 class TestDockerBuildTask(TestCase):
     """
