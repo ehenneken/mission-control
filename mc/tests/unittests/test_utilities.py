@@ -16,7 +16,7 @@ from mc.exceptions import NoSignatureInfo, InvalidSignature, UnknownRepoError, \
 from mc.tests.stubdata.github_webhook_payload import payload, payload_tag
 from mc.models import db, Commit
 from mc.utils import ChangeDir, get_boto_session, timed, load_yaml_ordered
-from dateutil.tz import tzoffset, tzlocal
+from dateutil.tz import tzoffset, tzutc
 from flask.ext.testing import TestCase
 from collections import OrderedDict
 
@@ -226,7 +226,7 @@ class TestStaticMethodUtilities(TestCase):
         )
         self.assertEqual(
             c.timestamp,
-            datetime.datetime(2015, 6, 3, 12, 26, 57, tzinfo=tzlocal())
+            datetime.datetime(2015, 6, 3, 12, 26, 57, tzinfo=tzutc())
         )
 
         # Assert that a different timeformat returns the expected
